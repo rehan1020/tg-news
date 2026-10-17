@@ -62,7 +62,7 @@ def test_chunk_message_boundaries():
 @pytest.mark.asyncio
 async def test_telegram_dry_run():
     client = TelegramClient(
-        bot_token="fake_token_12345",
+        bot_token="mock",
         owner_chat_id="999888777",
         dry_run=True,
     )
@@ -79,13 +79,13 @@ async def test_telegram_dry_run():
 async def test_owner_lock_ignores_non_owner():
     owner_id = "12345"
     client = TelegramClient(
-        bot_token="test_token",
+        bot_token="mock",
         owner_chat_id=owner_id,
         dry_run=False,
     )
 
     # Mock Telegram getUpdates returning 2 messages: 1 from stranger, 1 from owner
-    respx.get(url__startswith="https://api.telegram.org/bottest_token/getUpdates").respond(
+    respx.get(url__startswith="https://api.telegram.org/botmock/getUpdates").respond(
         status_code=200,
         json={
             "ok": True,

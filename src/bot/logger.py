@@ -42,10 +42,12 @@ class RedactingFilter(logging.Filter):
         if record.args:
             if isinstance(record.args, dict):
                 record.args = {
-                    k: (self._redact(str(v)) if not isinstance(v, (int, float, bool, bytes)) else v)
+                    k: (
+                        self._redact(str(v)) if not isinstance(v, int | float | bool | bytes) else v
+                    )
                     for k, v in record.args.items()
                 }
-            elif isinstance(record.args, (tuple, list)):
+            elif isinstance(record.args, tuple | list):
                 new_args = []
                 for a in record.args:
                     if isinstance(a, str):
@@ -55,13 +57,13 @@ class RedactingFilter(logging.Filter):
                             {
                                 k: (
                                     self._redact(str(v))
-                                    if not isinstance(v, (int, float, bool, bytes))
+                                    if not isinstance(v, int | float | bool | bytes)
                                     else v
                                 )
                                 for k, v in a.items()
                             }
                         )
-                    elif not isinstance(a, (int, float, bool, bytes)):
+                    elif not isinstance(a, int | float | bool | bytes):
                         new_args.append(self._redact(str(a)))
                     else:
                         new_args.append(a)

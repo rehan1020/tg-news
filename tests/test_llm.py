@@ -45,7 +45,7 @@ class TestOutputValidation:
 @pytest.mark.asyncio
 @respx.mock
 async def test_gemini_adapter_success():
-    provider = GeminiProvider(api_key="fake_key_123")
+    provider = GeminiProvider(api_key="mock")
     respx.post(url__startswith="https://generativelanguage.googleapis.com").respond(
         status_code=200,
         json={
@@ -77,8 +77,8 @@ async def test_gemini_adapter_success():
 async def test_groq_fallback_when_gemini_fails():
     state = BotState()
     orchestrator = LLMOrchestrator(
-        gemini_api_key="gemini_key",
-        groq_api_key="groq_key",
+        gemini_api_key="mock",
+        groq_api_key="mock",
     )
 
     # Gemini returns 429 quota exhaustion
@@ -122,7 +122,7 @@ async def test_budget_exhaustion_degrades_to_snippet():
     state.llm_usage["calls_today"] = 55
 
     orchestrator = LLMOrchestrator(
-        gemini_api_key="gemini_key",
+        gemini_api_key="mock",
         daily_limit=50,
     )
 

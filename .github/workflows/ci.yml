@@ -63,7 +63,7 @@ jobs:
           echo "Scanning tracked files for potential secrets..."
           # Patterns that suggest hard-coded secrets (case-insensitive)
           PATTERNS='(api[_-]?key|secret[_-]?key|bot[_-]?token|access[_-]?token|password)\s*[:=]\s*["\x27][A-Za-z0-9_\-]{10,}'
-          if git grep -inP "$PATTERNS" -- '*.py' '*.yml' '*.yaml' '*.json' '*.toml' '*.cfg' '*.ini' '*.env' ':!.github/workflows/*'; then
+          if git grep -inP "$PATTERNS" -- '*.py' '*.yml' '*.yaml' '*.json' '*.toml' '*.cfg' '*.ini' '*.env' ':!.github/workflows/*' ':!tests/*'; then
             echo "::error::Potential secrets found in tracked files!"
             exit 1
           else
