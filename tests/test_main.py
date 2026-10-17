@@ -22,3 +22,13 @@ class TestMainEntrypoint:
         ):
             ret = main()
             assert ret == 1
+
+    def test_main_force_digest_flag(self):
+        """CLI main with --force-digest should pass flag."""
+        with (
+            patch("sys.argv", ["bot", "--dry-run", "--force-digest"]),
+            patch("src.bot.__main__.run") as mock_run,
+        ):
+            ret = main()
+            assert ret == 0
+            mock_run.assert_called_once_with(dry_run=True, force_digest=True)

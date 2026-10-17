@@ -37,7 +37,12 @@ async def apply_start_delay(max_delay_seconds: int) -> None:
     await asyncio.sleep(delay)
 
 
-async def run(*, dry_run: bool = False, config_override: BotConfig | None = None) -> None:
+async def run(
+    *,
+    dry_run: bool = False,
+    force_digest: bool = False,
+    config_override: BotConfig | None = None,
+) -> None:
     """Execute the full bot pipeline."""
     config = config_override or load_config(dry_run=dry_run)
 
@@ -197,11 +202,13 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
         digest_times=config.digest_times,
         digest_history=state.digest_history,
     )
-    should_send_digest = bool(due_slot_key or on_demand_requested or state.pending_digest)
+    should_send_digest = bool(
+        due_slot_key or on_demand_requested or state.pending_digest or force_digest
+    )
     digest_sent = False
 
     if should_send_digest:
-        if state.paused and not (on_demand_requested or state.pending_digest):
+        if state.paused and not (on_demand_requested or state.pending_digest or force_digest):
             logger.info("bot is paused; skipping scheduled digest")
             if due_slot_key:
                 state.digest_history[due_slot_key] = True
@@ -212,6 +219,19 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
             ]
             active_items.sort(key=lambda x: x.get("score", 0.0), reverse=True)
             top_digest_items = active_items[:8]
+
+            # In force_digest mode, if queue had few items, backfill from freshest clusters
+            if len(top_digest_items) < 4 and force_digest and clusters:
+                seen_urls = {q.get("url") for q in top_digest_items}
+                for cl in clusters:
+                    if len(top_digest_items) >= 8:
+                        break
+                    p_itm = cl.primary_item
+                    if p_itm.url not in seen_urls and p_itm.sector not in state.muted_sectors:
+                        seen_urls.add(p_itm.url)
+                        top_digest_items.append(
+                            item_to_digest_dict(p_itm, cluster_size=cl.size, score=0.6)
+                        )
 
             if top_digest_items:
                 for d_itm in top_digest_items:
@@ -229,11 +249,12 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
                         )
                         d_itm["summary"] = s_bullets
 
-                slot_label = (
-                    "On-Demand Digest"
-                    if (on_demand_requested or state.pending_digest)
-                    else "Daily Digest"
-                )
+                if on_demand_requested or state.pending_digest:
+                    slot_label = "On-Demand Digest"
+                elif force_digest:
+                    slot_label = "Daily Digest (Test Run)"
+                else:
+                    slot_label = "Daily Digest"
                 digest_msgs = format_digest_messages(top_digest_items, slot_label=slot_label)
                 for d_msg in digest_msgs:
                     await telegram.send_message(d_msg)

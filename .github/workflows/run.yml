@@ -10,6 +10,10 @@ on:
         description: "Run in dry-run mode (no messages sent)"
         type: boolean
         default: false
+      force_digest:
+        description: "Force compiling and dispatching digest regardless of schedule"
+        type: boolean
+        default: false
 
 concurrency:
   group: news-bot-run
@@ -60,6 +64,7 @@ jobs:
           DIGEST_TIMES: ${{ secrets.DIGEST_TIMES }}
           QUIET_HOURS: ${{ secrets.QUIET_HOURS }}
           TIMEZONE: ${{ secrets.TIMEZONE }}
+          FORCE_DIGEST: ${{ inputs.force_digest }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             python -m src.bot --dry-run
