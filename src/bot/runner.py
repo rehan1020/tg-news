@@ -7,7 +7,9 @@ import random
 
 from src.bot.config import BotConfig, load_config
 from src.bot.logger import get_logger
+from src.extract.extractor import ArticleExtractor
 from src.feeds.fetcher import FeedFetcher
+from src.llm.orchestrator import LLMOrchestrator
 from src.pipeline.clustering import cluster_items
 from src.pipeline.dedupe import deduplicate_items
 from src.pipeline.scoring import ScoringEngine
@@ -91,15 +93,40 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
                 },
             )
 
-    # Step 7: Extract full text (Phase 3 stub)
-    # Step 8: Summarize via LLM (Phase 3 stub)
+    # Step 7: Initialize extractor and LLM orchestrator
+    extractor = ArticleExtractor()
+    llm_orchestrator = LLMOrchestrator(
+        gemini_api_key=config.gemini_api_key,
+        groq_api_key=config.groq_api_key,
+    )
 
-    # Step 9: Send breaking items immediately
+    # Step 8 & 9: Extract, summarize, and send breaking items immediately
     sent_count = 0
     if not state.paused:
         for sc in breaking:
+            item = sc.cluster.primary_item
+
+            # Extract full text or fallback to snippet
+            article_text, is_extracted_fallback = await extractor.extract_text(
+                item.url,
+                extract_mode="full",
+                snippet_fallback=item.summary_raw,
+            )
+
+            # Summarize via LLM (or degrade to snippet on budget/failure)
+            summary_bullets, is_rss = await llm_orchestrator.summarize_story(
+                title=item.title,
+                text=article_text,
+                snippet=item.summary_raw,
+                state=state,
+            )
+
+            is_rss_only = is_extracted_fallback or is_rss
             message_text = format_headline_message(
-                sc.cluster.primary_item, cluster_size=sc.cluster.size
+                item=item,
+                bullets=summary_bullets,
+                cluster_size=sc.cluster.size,
+                is_rss_only=is_rss_only,
             )
             success = await telegram.send_message(message_text)
             if success:

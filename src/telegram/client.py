@@ -44,7 +44,12 @@ def format_relative_time(published_at: float) -> str:
     return "just now"
 
 
-def format_headline_message(item: FeedItem, cluster_size: int = 1) -> str:
+def format_headline_message(
+    item: FeedItem,
+    bullets: str = "",
+    cluster_size: int = 1,
+    is_rss_only: bool = False,
+) -> str:
     """Format a single news item as clean Telegram HTML."""
     sector_tag = SECTOR_EMOJIS.get(item.sector.lower(), f"📰 #{item.sector.upper()}")
     escaped_title = html.escape(item.title)
@@ -55,11 +60,18 @@ def format_headline_message(item: FeedItem, cluster_size: int = 1) -> str:
     lines = [
         f"<b>{sector_tag}</b>",
         f"<b>{escaped_title}</b>",
-        f"<i>{escaped_source} • {rel_time}</i>",
     ]
 
+    if bullets:
+        escaped_bullets = html.escape(bullets)
+        lines.append(escaped_bullets)
+
+    footer = f"<i>{escaped_source} • {rel_time}</i>"
     if cluster_size > 1:
-        lines.append(f"<i>(+{cluster_size - 1} other sources)</i>")
+        footer += f" <i>(+{cluster_size - 1} other sources)</i>"
+    if is_rss_only:
+        footer += " <i>[RSS snippet]</i>"
+    lines.append(footer)
 
     lines.append(f'<a href="{escaped_url}">Read original</a>')
     return "\n\n".join(lines)

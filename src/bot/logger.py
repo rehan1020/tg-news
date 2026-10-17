@@ -42,10 +42,10 @@ class RedactingFilter(logging.Filter):
         if record.args:
             if isinstance(record.args, dict):
                 record.args = {
-                    k: (self._redact(v) if isinstance(v, str) else v)
+                    k: (self._redact(str(v)) if not isinstance(v, (int, float, bool, bytes)) else v)
                     for k, v in record.args.items()
                 }
-            elif isinstance(record.args, tuple):
+            elif isinstance(record.args, (tuple, list)):
                 new_args = []
                 for a in record.args:
                     if isinstance(a, str):
@@ -53,10 +53,16 @@ class RedactingFilter(logging.Filter):
                     elif isinstance(a, dict):
                         new_args.append(
                             {
-                                k: (self._redact(v) if isinstance(v, str) else v)
+                                k: (
+                                    self._redact(str(v))
+                                    if not isinstance(v, (int, float, bool, bytes))
+                                    else v
+                                )
                                 for k, v in a.items()
                             }
                         )
+                    elif not isinstance(a, (int, float, bool, bytes)):
+                        new_args.append(self._redact(str(a)))
                     else:
                         new_args.append(a)
                 record.args = tuple(new_args)
@@ -64,7 +70,8 @@ class RedactingFilter(logging.Filter):
 
     def _redact(self, text: str) -> str:
         # First: redact known secret values (exact match)
-        for secret in self._secret_values:
+        secrets = self._secret_values if self._secret_values else _collect_secret_values()
+        for secret in secrets:
             if secret and secret in text:
                 text = text.replace(secret, "[REDACTED]")
         # Second: redact URL query params that carry secrets
