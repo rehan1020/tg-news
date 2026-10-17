@@ -10,6 +10,7 @@ Security invariants:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
@@ -288,7 +289,13 @@ class StateManager:
         )
         tree_sha = p_tree.stdout.decode("ascii").strip()
 
-        # 3. Create commit (omit parent if squashing or initial commit)
+        bot_email = "41898282+github-actions[bot]@users.noreply.github.com"
+        git_env = os.environ.copy()
+        git_env.setdefault("GIT_AUTHOR_NAME", "github-actions[bot]")
+        git_env.setdefault("GIT_AUTHOR_EMAIL", bot_email)
+        git_env.setdefault("GIT_COMMITTER_NAME", "github-actions[bot]")
+        git_env.setdefault("GIT_COMMITTER_EMAIL", bot_email)
+
         commit_msg = "state: squashed history" if should_squash else "update state"
         commit_cmd = ["git", "commit-tree", tree_sha, "-m", commit_msg]
         if parent_sha and not should_squash:
@@ -298,6 +305,7 @@ class StateManager:
             cwd=str(self._repo_root),
             capture_output=True,
             check=True,
+            env=git_env,
         )
         commit_sha = p_commit.stdout.decode("ascii").strip()
 

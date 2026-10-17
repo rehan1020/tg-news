@@ -234,9 +234,11 @@ def load_config(dry_run: bool | None = None) -> BotConfig:
     # 3. Read secrets from environment
     secrets: dict[str, str] = {}
     for env_var, field_name in _SECRET_ENV_VARS.items():
-        value = os.environ.get(env_var, "")
-        if value:
-            secrets[field_name] = value
+        raw_val = os.environ.get(env_var, "")
+        if raw_val:
+            cleaned_val = raw_val.strip().strip("'\"")
+            if cleaned_val:
+                secrets[field_name] = cleaned_val
 
     # 4. Check DRY_RUN
     if dry_run is not None:

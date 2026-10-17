@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Fetch state branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin state:refs/heads/state || true
+
       - name: Run bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -60,3 +66,8 @@ jobs:
           else
             python -m src.bot
           fi
+
+      - name: Push state branch
+        if: always()
+        run: |
+          git push origin refs/heads/state:refs/heads/state || true
