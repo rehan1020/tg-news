@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import os
 import random
 
 from src.bot.config import BotConfig, load_config
@@ -40,11 +41,12 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
     """Execute the full bot pipeline."""
     config = config_override or load_config(dry_run=dry_run)
 
-    # Step 1: Random start delay
-    if not dry_run:
+    # Step 1: Random start delay (only apply on scheduled cron runs, skip on manual dispatch)
+    is_manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    if not dry_run and not is_manual:
         await apply_start_delay(config.max_start_delay_seconds)
     else:
-        logger.info("skipping start delay in dry-run mode")
+        logger.info("skipping start delay", extra={"dry_run": dry_run, "manual": is_manual})
 
     # Step 2: Load and decrypt state
     state_manager = StateManager(

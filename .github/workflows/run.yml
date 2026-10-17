@@ -9,7 +9,7 @@ on:
       dry_run:
         description: "Run in dry-run mode (no messages sent)"
         type: boolean
-        default: true
+        default: false
 
 concurrency:
   group: news-bot-run
@@ -55,7 +55,7 @@ jobs:
           QUIET_HOURS: ${{ secrets.QUIET_HOURS }}
           TIMEZONE: ${{ secrets.TIMEZONE }}
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
             python -m src.bot --dry-run
           else
             python -m src.bot

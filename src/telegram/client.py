@@ -89,7 +89,7 @@ class TelegramClient:
         api_base: str = TELEGRAM_API_BASE,
     ) -> None:
         self._token = bot_token
-        self._owner_chat_id = str(owner_chat_id).strip()
+        self._owner_chat_id = str(owner_chat_id).strip().strip('"').strip("'")
         self._dry_run = dry_run
         self._api_base = f"{api_base}/bot{bot_token}"
         self._last_send_time: float = 0.0
