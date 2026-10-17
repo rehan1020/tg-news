@@ -1,0 +1,25 @@
+name: Keepalive
+
+on:
+  schedule:
+    # Every Monday at 12:00 UTC
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write  # needed to push the empty commit
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+
+      - name: Push empty keepalive commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit --allow-empty -m 'keepalive: prevent Actions schedule auto-disable'
+          git push

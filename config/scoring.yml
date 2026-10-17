@@ -1,0 +1,77 @@
+# Scoring weights and thresholds — tune these for your preferences.
+
+trust_weights:
+  official: 1.0
+  major: 0.8
+  specialist: 0.6
+  aggregator: 0.4
+
+recency:
+  decay_hours: 6
+  # Linear decay: score = max(0, 1 - age_hours / decay_hours)
+
+cluster:
+  log_boost_per_source: 0.15
+  max_boost: 0.5
+
+watchlist:
+  hit_boost: 0.3
+
+breaking_keywords:
+  world:
+    - ceasefire
+    - sanctions
+    - invasion
+    - coup
+    - assassination
+    - nuclear
+    - emergency
+    - martial law
+  india:
+    - emergency
+    - curfew
+    - parliament
+    - supreme court
+    - election result
+  business:
+    - rate decision
+    - rate cut
+    - rate hike
+    - default
+    - bailout
+    - recession
+    - gdp
+  markets:
+    - trading halt
+    - circuit breaker
+    - flash crash
+    - ipo
+    - earnings
+    - margin call
+  crypto:
+    - hack
+    - exploit
+    - depeg
+    - sec
+    - etf approved
+    - rug pull
+    - fork
+
+breaking_keyword_boost: 0.4
+
+penalty_patterns:
+  - pattern: "(?i)\\bopinion\\b"
+    penalty: 0.3
+  - pattern: "(?i)\\bsponsored\\b"
+    penalty: 0.5
+  - pattern: "(?i)\\b\\d+ (things|ways|reasons|tips)\\b"
+    penalty: 0.2
+  - pattern: "(?i)\\brecap\\b"
+    penalty: 0.15
+
+thresholds:
+  breaking: 0.75
+  digest: 0.35
+
+per_run_caps:
+  breaking_max: 8
