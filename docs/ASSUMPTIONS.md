@@ -14,7 +14,17 @@ This document records assumptions made during development that should be verifie
 - **Python 3.12**: Targeted runtime version in GitHub Actions. Local development may
   use 3.12+.
 
-## Feed URLs
+## Phase 1 — Feed Verification (2026-10-17)
 
-Feed URLs in `config/sources.yml` are candidates. Each will be live-verified in Phase 1.
-URLs marked with "to be verified" notes are best-effort and may need correction.
+All feed candidates in `config/sources.yml` were live-tested using `scripts/feed_validator.py`.
+- **Enabled & Verified Live (HTTP 200)**:
+  - World: BBC World, Al Jazeera, DW News, The Guardian, NYT Top Stories
+  - India: The Hindu, Indian Express, Mint, Economic Times
+  - Business / Macro: Federal Reserve Press, ECB Press, RBI Press (`https://rbi.org.in/pressreleases_rss.xml`), SEBI Press (`https://www.sebi.gov.in/sebirss.xml`)
+  - Markets: Yahoo Finance S&P 500 (`https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC`)
+  - Crypto: CoinDesk, Cointelegraph, The Block
+- **Disabled Feeds & Rationale**:
+  - `pib` (Press Information Bureau): PIB WAF blocks non-browser custom User-Agents with HTTP 403. Disabled by default to strictly adhere to automated crawler etiquette.
+  - `imf_news`: IMF website requires a client-side JavaScript challenge/redirect; direct RSS returned 0 entries. Disabled by default.
+  - `gdelt` & `google_news`: Aggregators disabled by default per upstream policy pending adopter preference.
+  - `alphavantage` & `cryptopanic`: Disabled by default; require optional user API keys.

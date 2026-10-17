@@ -26,6 +26,8 @@ APPROVED_API_HOSTS = {
     "content.guardianapis.com",
     "api.nytimes.com",
     "cryptopanic.com",
+    # Project Repository / Documentation
+    "github.com",
     # Test / Documentation domains
     "api.example.com",
     "example.com",

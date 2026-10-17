@@ -41,14 +41,22 @@ class RedactingFilter(logging.Filter):
         record.msg = self._redact(str(record.msg))
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {k: self._redact(str(v)) for k, v in record.args.items()}
+                record.args = {
+                    k: (self._redact(v) if isinstance(v, str) else v)
+                    for k, v in record.args.items()
+                }
             elif isinstance(record.args, tuple):
                 new_args = []
                 for a in record.args:
-                    if isinstance(a, dict):
-                        new_args.append({k: self._redact(str(v)) for k, v in a.items()})
+                    if isinstance(a, str):
+                        new_args.append(self._redact(a))
+                    elif isinstance(a, dict):
+                        new_args.append({
+                            k: (self._redact(v) if isinstance(v, str) else v)
+                            for k, v in a.items()
+                        })
                     else:
-                        new_args.append(self._redact(str(a)))
+                        new_args.append(a)
                 record.args = tuple(new_args)
         return True
 

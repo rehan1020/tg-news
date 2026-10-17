@@ -57,11 +57,12 @@ sources:
 
   - id: pib
     name: Press Information Bureau
-    url: https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
+    url: https://www.pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
     sector: india
     trust_tier: official
     extract_mode: full
-    enabled: true
+    enabled: false
+    notes: Disabled — PIB blocks non-browser User-Agent with HTTP 403
 
   - id: indianexpress
     name: Indian Express
@@ -106,40 +107,37 @@ sources:
 
   - id: rbi_press
     name: RBI Press Releases
-    url: https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?output=rss
+    url: https://rbi.org.in/pressreleases_rss.xml
     sector: business
     trust_tier: official
     extract_mode: full
     enabled: true
-    notes: URL to be verified in Phase 1
 
   - id: sebi_press
     name: SEBI Press Releases
-    url: https://www.sebi.gov.in/sebiweb/home/HomeRss.jsp?contentType=PressRelease
+    url: https://www.sebi.gov.in/sebirss.xml
     sector: business
     trust_tier: official
     extract_mode: full
     enabled: true
-    notes: URL to be verified in Phase 1
 
   - id: imf_news
     name: IMF News
-    url: https://www.imf.org/en/News/rss
+    url: https://www.imf.org/en/rss/news
     sector: business
     trust_tier: official
     extract_mode: full
-    enabled: true
-    notes: URL to be verified in Phase 1
+    enabled: false
+    notes: Disabled — IMF website requires JS challenge / redirect
 
   # --- Markets / Day Trading ---
   - id: yahoo_finance
     name: Yahoo Finance
-    url: https://finance.yahoo.com/news/rssindex
+    url: https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC
     sector: markets
     trust_tier: specialist
     extract_mode: rss_only
     enabled: true
-    notes: URL to be verified in Phase 1
 
   - id: finnhub
     name: Finnhub Market News

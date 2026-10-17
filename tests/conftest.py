@@ -11,7 +11,7 @@ import pytest
 _TEST_ENV = {
     "TELEGRAM_BOT_TOKEN": "test-token-1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ",
     "TELEGRAM_OWNER_CHAT_ID": "123456789",
-    "STATE_ENCRYPTION_KEY": "dGVzdC1lbmNyeXB0aW9uLWtleS0xMjM0NTY3ODkwYWJj",
+    "STATE_ENCRYPTION_KEY": "J1DsszMlfX0HxBJwd91qMYH6GfkQBfwbm6lAv_sVJmI=",
     "GEMINI_API_KEY": "AIzaSyTestKeyForTestingPurposesOnly1234",
 }
 
