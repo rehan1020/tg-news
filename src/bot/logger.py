@@ -51,10 +51,12 @@ class RedactingFilter(logging.Filter):
                     if isinstance(a, str):
                         new_args.append(self._redact(a))
                     elif isinstance(a, dict):
-                        new_args.append({
-                            k: (self._redact(v) if isinstance(v, str) else v)
-                            for k, v in a.items()
-                        })
+                        new_args.append(
+                            {
+                                k: (self._redact(v) if isinstance(v, str) else v)
+                                for k, v in a.items()
+                            }
+                        )
                     else:
                         new_args.append(a)
                 record.args = tuple(new_args)

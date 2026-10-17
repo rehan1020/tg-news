@@ -8,7 +8,9 @@ import random
 from src.bot.config import BotConfig, load_config
 from src.bot.logger import get_logger
 from src.feeds.fetcher import FeedFetcher
+from src.pipeline.clustering import cluster_items
 from src.pipeline.dedupe import deduplicate_items
+from src.pipeline.scoring import ScoringEngine
 from src.state.manager import StateManager
 from src.telegram.client import TelegramClient, format_headline_message
 
@@ -62,16 +64,43 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
         extra={"unique_count": len(unique_items), "dropped_count": dropped_count},
     )
 
-    # Step 6: Score and route (Phase 2 stub)
+    # Step 6: Cluster, score, and route
+    clusters = cluster_items(unique_items)
+    scoring_engine = ScoringEngine()
+    breaking, digest, discarded = scoring_engine.route_clusters(
+        clusters=clusters,
+        state=state,
+        quiet_hours=config.quiet_hours,
+        tz_name=config.timezone,
+    )
+
+    if dry_run:
+        # Display score breakdowns in dry-run mode
+        for sc in breaking:
+            logger.info(
+                "dry-run score breakdown (breaking)",
+                extra={
+                    "sector": sc.cluster.primary_item.sector,
+                    "score": sc.score.total,
+                    "trust": sc.score.trust,
+                    "recency": sc.score.recency,
+                    "cluster_boost": sc.score.cluster_boost,
+                    "watchlist_boost": sc.score.watchlist_boost,
+                    "breaking_boost": sc.score.breaking_boost,
+                    "penalties": sc.score.penalties,
+                },
+            )
+
     # Step 7: Extract full text (Phase 3 stub)
     # Step 8: Summarize via LLM (Phase 3 stub)
 
-    # Step 9: Send headlines immediately (Phase 1 delivery, top 8)
+    # Step 9: Send breaking items immediately
     sent_count = 0
     if not state.paused:
-        items_to_send = unique_items[:8]
-        for item in items_to_send:
-            message_text = format_headline_message(item)
+        for sc in breaking:
+            message_text = format_headline_message(
+                sc.cluster.primary_item, cluster_size=sc.cluster.size
+            )
             success = await telegram.send_message(message_text)
             if success:
                 sent_count += 1
