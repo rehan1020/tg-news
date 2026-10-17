@@ -15,6 +15,13 @@ from src.pipeline.dedupe import deduplicate_items
 from src.pipeline.scoring import ScoringEngine
 from src.state.manager import StateManager
 from src.telegram.client import TelegramClient, format_headline_message
+from src.telegram.commands import handle_command
+from src.telegram.digest import (
+    check_due_digest_slots,
+    format_digest_messages,
+    get_current_local_time,
+    item_to_digest_dict,
+)
 
 logger = get_logger(__name__)
 
@@ -45,7 +52,11 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
     )
     state = state_manager.load_state()
 
-    # Step 3: Telegram client and owner updates
+    # Seed state watchlist from config if empty
+    if not state.watchlist and config.watchlist:
+        state.watchlist = list(config.watchlist)
+
+    # Step 3: Telegram client and owner updates / commands
     telegram = TelegramClient(
         bot_token=config.telegram_bot_token,
         owner_chat_id=config.telegram_owner_chat_id,
@@ -53,6 +64,16 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
     )
     updates = await telegram.get_owner_updates(state)
     logger.info("telegram updates received", extra={"count": len(updates)})
+
+    on_demand_requested = False
+    for upd in updates:
+        msg = upd.get("message") or upd.get("channel_post") or {}
+        text = msg.get("text", "")
+        reply = handle_command(text, state, feed_health=state.feed_states)
+        if reply:
+            await telegram.send_message(reply)
+            if state.pending_digest:
+                on_demand_requested = True
 
     # Step 4: Poll feeds (conditional GET, health tracking)
     fetcher = FeedFetcher()
@@ -134,7 +155,78 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
     else:
         logger.info("bot is paused; skipping message dispatch")
 
-    # Step 10: Encrypt and persist state
+    # Queue new digest-eligible items from this run
+    for sc in digest:
+        itm_dict = item_to_digest_dict(
+            sc.cluster.primary_item,
+            cluster_size=sc.cluster.size,
+            score=sc.score.total,
+        )
+        if not any(q.get("url") == itm_dict["url"] for q in state.digest_queue):
+            state.digest_queue.append(itm_dict)
+
+    # Check for scheduled digest slots
+    local_dt = get_current_local_time(config.timezone)
+    due_slot_key = check_due_digest_slots(
+        local_dt=local_dt,
+        digest_times=config.digest_times,
+        digest_history=state.digest_history,
+    )
+    should_send_digest = bool(due_slot_key or on_demand_requested or state.pending_digest)
+    digest_sent = False
+
+    if should_send_digest:
+        if state.paused and not (on_demand_requested or state.pending_digest):
+            logger.info("bot is paused; skipping scheduled digest")
+            if due_slot_key:
+                state.digest_history[due_slot_key] = True
+        else:
+            # Filter out muted sectors
+            active_items = [
+                q for q in state.digest_queue if q.get("sector") not in state.muted_sectors
+            ]
+            active_items.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+            top_digest_items = active_items[:8]
+
+            if top_digest_items:
+                for d_itm in top_digest_items:
+                    if not d_itm.get("summary"):
+                        txt, _ = await extractor.extract_text(
+                            d_itm["url"],
+                            extract_mode="full",
+                            snippet_fallback="",
+                        )
+                        s_bullets, _ = await llm_orchestrator.summarize_story(
+                            title=d_itm["headline"],
+                            text=txt,
+                            snippet="",
+                            state=state,
+                        )
+                        d_itm["summary"] = s_bullets
+
+                slot_label = (
+                    "On-Demand Digest"
+                    if (on_demand_requested or state.pending_digest)
+                    else "Daily Digest"
+                )
+                digest_msgs = format_digest_messages(top_digest_items, slot_label=slot_label)
+                for d_msg in digest_msgs:
+                    await telegram.send_message(d_msg)
+
+                digest_sent = True
+                sent_urls = {itm["url"] for itm in top_digest_items}
+                state.digest_queue = [
+                    q for q in state.digest_queue if q.get("url") not in sent_urls
+                ]
+            elif on_demand_requested or state.pending_digest:
+                await telegram.send_message("📰 No digest items available in queue at this time.")
+
+            if due_slot_key:
+                state.digest_history[due_slot_key] = True
+            state.pending_digest = False
+
+    # Prune state retention and persist
+    state.prune_retention()
     state_manager.save_state(state)
 
     logger.info(
@@ -142,7 +234,8 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
         extra={
             "dry_run": dry_run,
             "raw_items": len(raw_items),
-            "unique_items": len(unique_items),
+            "breaking_count": len(breaking),
             "sent_messages": sent_count,
+            "digest_sent": digest_sent,
         },
     )

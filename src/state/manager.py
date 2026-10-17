@@ -40,6 +40,8 @@ class BotState:
     watchlist: list[str] = field(default_factory=list)
     paused: bool = False
     digest_history: dict[str, bool] = field(default_factory=dict)
+    digest_queue: list[dict[str, Any]] = field(default_factory=list)
+    pending_digest: bool = False
     llm_usage: dict[str, Any] = field(
         default_factory=lambda: {
             "day": time.strftime("%Y-%m-%d"),
@@ -57,6 +59,13 @@ class BotState:
         pruned = initial_seen - len(self.seen_hashes)
         if pruned > 0:
             logger.info("pruned expired items from seen store", extra={"pruned_count": pruned})
+        # Prune queued digest items older than 48 hours
+        queue_cutoff = time.time() - 48 * 3600
+        self.digest_queue = [
+            item for item in self.digest_queue if item.get("timestamp", time.time()) >= queue_cutoff
+        ]
+        if len(self.digest_queue) > 50:
+            self.digest_queue = self.digest_queue[-50:]
 
     def to_json(self) -> str:
         """Serialize state to JSON string."""
@@ -82,6 +91,8 @@ class BotState:
             watchlist=data.get("watchlist", []),
             paused=data.get("paused", False),
             digest_history=data.get("digest_history", {}),
+            digest_queue=data.get("digest_queue", []),
+            pending_digest=data.get("pending_digest", False),
             llm_usage=data.get(
                 "llm_usage",
                 {
