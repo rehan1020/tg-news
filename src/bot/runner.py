@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import random
 
 from src.bot.config import BotConfig, load_config
@@ -80,6 +81,16 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
     raw_items = await fetcher.fetch_all(config.sources, state)
     logger.info("feed polling completed", extra={"raw_items_count": len(raw_items)})
 
+    # Check and alert for any newly auto-disabled feeds
+    for src_id, f_state in state.feed_states.items():
+        if f_state.get("auto_disabled") and not f_state.get("alert_sent"):
+            f_state["alert_sent"] = True
+            await telegram.send_message(
+                f"⚠️ <b>Feed Health Alert</b>: Feed '<b>{html.escape(src_id)}</b>' failed "
+                "5 consecutive times and was automatically disabled to protect run health. "
+                "Use /status to inspect feed health."
+            )
+
     # Step 5: Normalize, canonicalize URLs, dedupe
     unique_items, dropped_count = deduplicate_items(raw_items, state)
     logger.info(
@@ -154,6 +165,18 @@ async def run(*, dry_run: bool = False, config_override: BotConfig | None = None
                 sent_count += 1
     else:
         logger.info("bot is paused; skipping message dispatch")
+
+    # Check LLM budget alert (alert once at >= 80% daily capacity)
+    llm = state.llm_usage
+    calls_today = llm.get("calls_today", 0)
+    tokens_today = llm.get("tokens_today", 0)
+    if (calls_today >= 1200 or tokens_today >= 400_000) and not llm.get("quota_alert_sent"):
+        llm["quota_alert_sent"] = True
+        await telegram.send_message(
+            f"⚠️ <b>LLM Budget Alert</b>: Daily summarization usage reached 80% "
+            f"({calls_today} calls, {tokens_today:,} tokens). "
+            "Bot will degrade to RSS snippet summaries if limit is reached."
+        )
 
     # Queue new digest-eligible items from this run
     for sc in digest:

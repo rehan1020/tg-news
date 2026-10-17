@@ -77,7 +77,9 @@ def test_format_digest_messages():
             "source_name": "Financial Times",
             "published_at": time.time() - 3600,
             "cluster_size": 3,
-            "summary": "• Global equities advanced on central bank policy clarity.\n• Tech led gains.",
+            "summary": (
+                "• Global equities advanced on central bank policy clarity.\n• Tech led gains."
+            ),
         },
         {
             "headline": "Semiconductor Export Policy Update",

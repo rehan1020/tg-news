@@ -220,7 +220,17 @@ class StateManager:
             # Save locally as emergency fallback
             (self._repo_root / self.STATE_FILE_NAME).write_bytes(ciphertext)
 
-    def _commit_to_state_branch(self, ciphertext: bytes) -> None:
+    MAX_STATE_COMMITS: int = 50
+
+    def squash_history(self, state: BotState) -> None:
+        """Explicitly squash the state branch history into a single commit."""
+        if self._dry_run or not self._fernet:
+            return
+        ciphertext = self.encrypt(state.to_json())
+        self._commit_to_state_branch(ciphertext, force_squash=True)
+        logger.info("state history successfully squashed to 1 commit")
+
+    def _commit_to_state_branch(self, ciphertext: bytes, force_squash: bool = False) -> None:
         """Commit encrypted blob to orphan state branch using git commands."""
         # Use git hash-object and update-index to write directly without checking out the branch
         # 1. Write blob into git object database
@@ -245,8 +255,29 @@ class StateManager:
         if ref_check.returncode == 0:
             parent_sha = ref_check.stdout.decode("ascii").strip()
 
+        # Check commit count to auto-squash
+        should_squash = force_squash
+        if parent_sha and not should_squash:
+            count_check = subprocess.run(
+                ["git", "rev-list", "--count", f"refs/heads/{self.STATE_BRANCH}"],
+                cwd=str(self._repo_root),
+                capture_output=True,
+                check=False,
+            )
+            if count_check.returncode == 0:
+                try:
+                    num_commits = int(count_check.stdout.decode("ascii").strip())
+                    if num_commits >= self.MAX_STATE_COMMITS:
+                        should_squash = True
+                        logger.info(
+                            "state commit count exceeded threshold; squashing history",
+                            extra={"commits": num_commits},
+                        )
+                except ValueError:
+                    pass
+
         # Write tree with state.enc entry
-        # Format: 100644 blob <sha>\tstate.enc\0
+        # Format: 100644 blob <sha>\tstate.enc\n
         tree_input = f"100644 blob {blob_sha}\t{self.STATE_FILE_NAME}\n"
         p_tree = subprocess.run(
             ["git", "mktree"],
@@ -257,9 +288,10 @@ class StateManager:
         )
         tree_sha = p_tree.stdout.decode("ascii").strip()
 
-        # 3. Create commit
-        commit_cmd = ["git", "commit-tree", tree_sha, "-m", "update state"]
-        if parent_sha:
+        # 3. Create commit (omit parent if squashing or initial commit)
+        commit_msg = "state: squashed history" if should_squash else "update state"
+        commit_cmd = ["git", "commit-tree", tree_sha, "-m", commit_msg]
+        if parent_sha and not should_squash:
             commit_cmd.extend(["-p", parent_sha])
         p_commit = subprocess.run(
             commit_cmd,

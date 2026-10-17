@@ -28,3 +28,9 @@ All feed candidates in `config/sources.yml` were live-tested using `scripts/feed
   - `imf_news`: IMF website requires a client-side JavaScript challenge/redirect; direct RSS returned 0 entries. Disabled by default.
   - `gdelt` & `google_news`: Aggregators disabled by default per upstream policy pending adopter preference.
   - `alphavantage` & `cryptopanic`: Disabled by default; require optional user API keys.
+
+## Phase 5 — Hardening & Operational Verifications
+
+- **Keepalive Mechanism**: GitHub disables scheduled workflows in public repositories after 60 days without repository commit activity. Verified against GitHub documentation ([Disabling and enabling a workflow](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/disabling-and-enabling-a-workflow)). The weekly scheduled keepalive workflow (`.github/workflows/keepalive.yml`) runs on Mondays and pushes an empty commit via `github-actions[bot]`, keeping the repo actively committed and preventing automated schedule disablement.
+- **State Squash Mechanics**: Using low-level git plumbing (`git hash-object`, `git mktree`, `git commit-tree` omitting `-p`), the state branch history can be atomically replaced with a single root commit holding `state.enc`. This keeps git clone times fast and prevents repository size bloat from hundreds of state revisions.
+- **Feed Failure Tolerance**: A threshold of 5 consecutive failures balances transient network hiccups/CDNs with dead endpoints, automatically protecting the runner from timeouts while notifying the owner via Telegram.

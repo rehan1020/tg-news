@@ -25,6 +25,9 @@ PER_DOMAIN_DELAY_SECONDS = 0.5
 USER_AGENT = "telegram-news-bot/0.1.0 (+https://github.com/upstream/news-bot)"
 
 
+MAX_CONSECUTIVE_FAILURES = 5
+
+
 class FeedFetcher:
     """Async feed fetcher implementing conditional GET and domain throttling."""
 
@@ -69,6 +72,12 @@ class FeedFetcher:
         if not source.get("enabled", True):
             return []
 
+        # Check if feed has been auto-disabled in state due to prior consecutive failures
+        feed_state = state.feed_states.setdefault(source_id, {})
+        if feed_state.get("auto_disabled") or not feed_state.get("enabled", True):
+            logger.info("skipping auto-disabled feed", extra={"source_id": source_id})
+            return []
+
         if url.startswith("api://"):
             logger.info(
                 "skipping api source in standard rss fetcher", extra={"source_id": source_id}
@@ -79,7 +88,6 @@ class FeedFetcher:
         domain = parsed_url.netloc.lower()
 
         # Retrieve prior feed health/conditional headers from state
-        feed_state = state.feed_states.setdefault(source_id, {})
         etag = feed_state.get("etag")
         last_modified = feed_state.get("last_modified")
 
@@ -92,6 +100,25 @@ class FeedFetcher:
         if last_modified:
             headers["If-Modified-Since"] = last_modified
 
+        def _record_failure(err_str: str, status_code: int = 0) -> None:
+            consecutive = feed_state.get("consecutive_failures", 0) + 1
+            feed_state["consecutive_failures"] = consecutive
+            feed_state["last_fetch_time"] = time.time()
+            if status_code:
+                feed_state["last_status"] = status_code
+            if consecutive >= MAX_CONSECUTIVE_FAILURES:
+                feed_state["enabled"] = False
+                feed_state["auto_disabled"] = True
+                logger.warning(
+                    "feed auto-disabled due to consecutive failures",
+                    extra={"source_id": source_id, "failures": consecutive},
+                )
+            else:
+                logger.warning(
+                    "feed fetch failed",
+                    extra={"source_id": source_id, "error": err_str, "failures": consecutive},
+                )
+
         async with self._semaphore:
             await self._throttle_domain(domain)
             try:
@@ -102,39 +129,28 @@ class FeedFetcher:
                     follow_redirects=True,
                 )
             except Exception as e:
-                consecutive = feed_state.get("consecutive_failures", 0) + 1
-                feed_state["consecutive_failures"] = consecutive
-                feed_state["last_fetch_time"] = time.time()
-                logger.warning(
-                    "feed fetch error",
-                    extra={"source_id": source_id, "error": str(e), "failures": consecutive},
-                )
+                _record_failure(str(e))
                 return []
 
         # Handle 304 Not Modified
         if response.status_code == 304:
             feed_state["consecutive_failures"] = 0
             feed_state["last_fetch_time"] = time.time()
+            feed_state["last_status"] = 304
             logger.info("feed not modified (304)", extra={"source_id": source_id})
             return []
 
         # Handle HTTP errors
         if response.status_code != 200:
-            consecutive = feed_state.get("consecutive_failures", 0) + 1
-            feed_state["consecutive_failures"] = consecutive
-            feed_state["last_fetch_time"] = time.time()
-            logger.warning(
-                "feed returned non-200 status",
-                extra={
-                    "source_id": source_id,
-                    "status": response.status_code,
-                    "failures": consecutive,
-                },
-            )
+            _record_failure(f"HTTP {response.status_code}", response.status_code)
             return []
 
         # Success: update conditional cache headers and reset failures
         feed_state["consecutive_failures"] = 0
+        feed_state["auto_disabled"] = False
+        feed_state["enabled"] = True
+        feed_state["alert_sent"] = False
+        feed_state["last_status"] = 200
         feed_state["last_fetch_time"] = time.time()
         new_etag = response.headers.get("etag")
         new_last_mod = response.headers.get("last-modified")
