@@ -406,7 +406,7 @@ def _collect_sector_items(
     """Gather and rank items for a specific sector or sectors, optionally filtering by keyword."""
     items_by_url: dict[str, dict[str, Any]] = {}
     term_lower = filter_term.lower().strip()
-    sectors = {s.lower() for s in (sector if isinstance(sector, (list, tuple, set)) else [sector])}
+    sectors = {s.lower() for s in (sector if isinstance(sector, list | tuple | set) else [sector])}
 
     # 1. From clusters
     for cl in clusters:
