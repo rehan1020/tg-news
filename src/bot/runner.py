@@ -44,11 +44,17 @@ async def run(
     dry_run: bool = False,
     force_digest: bool = False,
     force_crypto: bool = False,
+    force_markets: bool = False,
     config_override: BotConfig | None = None,
 ) -> None:
     """Execute the full bot pipeline."""
     config = config_override or load_config(dry_run=dry_run)
     force_crypto = force_crypto or os.environ.get("FORCE_CRYPTO", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    force_markets = force_markets or os.environ.get("FORCE_MARKETS", "").lower() in (
         "true",
         "1",
         "yes",
@@ -329,15 +335,18 @@ async def run(
         state.pending_crypto = False
         state.pending_crypto_filter = ""
 
-    # Step 11: On-demand Markets & Day Trading dispatch
-    if (on_markets_requested or state.pending_markets) and not state.paused:
-        logger.info("processing on-demand markets request")
+    # Step 11: On-demand Markets & Business/Macro dispatch
+    if (on_markets_requested or state.pending_markets or force_markets) and not state.paused:
+        logger.info(
+            "processing on-demand markets/business request",
+            extra={"filter": state.pending_markets_filter},
+        )
         market_items = _collect_sector_items(
-            sector="markets",
+            sector=("markets", "business"),
             clusters=clusters,
             raw_items=raw_items,
             digest_queue=state.digest_queue,
-            filter_term="",
+            filter_term=state.pending_markets_filter,
             max_items=8,
         )
         if market_items:
@@ -357,16 +366,18 @@ async def run(
                     m_itm["summary"] = s_bullets
             m_msgs = format_sector_digest_messages(
                 market_items,
-                title="Market & Day Trading Movers",
+                title="Business, Macro & Market Intelligence",
                 icon="📈",
+                filter_term=state.pending_markets_filter,
             )
             for m in m_msgs:
                 await telegram.send_message(m)
         else:
             await telegram.send_message(
-                "📈 No active market trading stories found in monitored feeds right now."
+                "📈 No active business or market stories found matching your request right now."
             )
         state.pending_markets = False
+        state.pending_markets_filter = ""
 
     # Prune state retention and persist
     state.prune_retention()
@@ -385,21 +396,22 @@ async def run(
 
 
 def _collect_sector_items(
-    sector: str,
+    sector: str | tuple[str, ...] | list[str] | set[str],
     clusters: list[Any],
     raw_items: list[Any],
     digest_queue: list[dict[str, Any]],
     filter_term: str = "",
     max_items: int = 8,
 ) -> list[dict[str, Any]]:
-    """Gather and rank items for a specific sector, optionally filtering by keyword."""
+    """Gather and rank items for a specific sector or sectors, optionally filtering by keyword."""
     items_by_url: dict[str, dict[str, Any]] = {}
     term_lower = filter_term.lower().strip()
+    sectors = {s.lower() for s in (sector if isinstance(sector, (list, tuple, set)) else [sector])}
 
     # 1. From clusters
     for cl in clusters:
         p = cl.primary_item
-        if p.sector.lower() == sector.lower():
+        if p.sector.lower() in sectors:
             if (
                 term_lower
                 and term_lower not in p.title.lower()
@@ -411,7 +423,7 @@ def _collect_sector_items(
 
     # 2. Check raw items for any other stories
     for r in raw_items:
-        if r.sector.lower() == sector.lower() and r.url not in items_by_url:
+        if r.sector.lower() in sectors and r.url not in items_by_url:
             if (
                 term_lower
                 and term_lower not in r.title.lower()
@@ -423,7 +435,7 @@ def _collect_sector_items(
 
     # 3. Check digest queue
     for q in digest_queue:
-        if q.get("sector", "").lower() == sector.lower() and q.get("url") not in items_by_url:
+        if q.get("sector", "").lower() in sectors and q.get("url") not in items_by_url:
             if term_lower and term_lower not in q.get("headline", "").lower():
                 continue
             items_by_url[q["url"]] = dict(q)

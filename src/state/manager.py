@@ -46,6 +46,7 @@ class BotState:
     pending_crypto: bool = False
     pending_crypto_filter: str = ""
     pending_markets: bool = False
+    pending_markets_filter: str = ""
     llm_usage: dict[str, Any] = field(
         default_factory=lambda: {
             "day": time.strftime("%Y-%m-%d"),
@@ -100,6 +101,7 @@ class BotState:
             pending_crypto=data.get("pending_crypto", False),
             pending_crypto_filter=data.get("pending_crypto_filter", ""),
             pending_markets=data.get("pending_markets", False),
+            pending_markets_filter=data.get("pending_markets_filter", ""),
             llm_usage=data.get(
                 "llm_usage",
                 {

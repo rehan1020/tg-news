@@ -90,3 +90,11 @@ def test_dry_run_state_manager(test_key):
     assert isinstance(state, BotState)
     # Save in dry-run should not raise and should not write files
     mgr.save_state(state)
+
+
+def test_state_pending_markets_filter_round_trip():
+    state = BotState(pending_markets=True, pending_markets_filter="interest rate")
+    serialized = state.to_json()
+    restored = BotState.from_json(serialized)
+    assert restored.pending_markets is True
+    assert restored.pending_markets_filter == "interest rate"

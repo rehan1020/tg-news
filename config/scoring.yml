@@ -41,6 +41,21 @@ breaking_keywords:
     - bailout
     - recession
     - gdp
+    - inflation
+    - cpi
+    - ppi
+    - jobs report
+    - unemployment
+    - central bank intervention
+    - treasury
+    - trade deficit
+    - tariffs
+    - layoffs
+    - debt ceiling
+    - bond yields
+    - fiscal
+    - merger
+    - acquisition
   markets:
     - trading halt
     - circuit breaker
@@ -48,6 +63,24 @@ breaking_keywords:
     - ipo
     - earnings
     - margin call
+    - rally
+    - slump
+    - selloff
+    - plunge
+    - surge
+    - all-time high
+    - record high
+    - shares surge
+    - shares jump
+    - shares tumble
+    - bull market
+    - bear market
+    - s&p 500
+    - nasdaq
+    - dow jones
+    - quarterly results
+    - revenue beats
+    - revenue misses
   crypto:
     - hack
     - exploit

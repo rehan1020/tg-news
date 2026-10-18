@@ -140,10 +140,34 @@ def test_crypto_command(clean_state):
 
 
 def test_markets_command(clean_state):
-    """Markets command triggers pending_markets flag."""
+    """Markets command and aliases trigger pending_markets flag with optional filter."""
     assert clean_state.pending_markets is False
     reply = handle_command("/markets", clean_state)
-    assert "Market" in reply
+    assert "Business & Market Intelligence Requested" in reply
+    assert clean_state.pending_markets is True
+    assert clean_state.pending_markets_filter == ""
+
+    # With filter argument
+    clean_state.pending_markets = False
+    reply_filtered = handle_command("/markets fed rate cut", clean_state)
+    assert "fed rate cut" in reply_filtered
+    assert clean_state.pending_markets is True
+    assert clean_state.pending_markets_filter == "fed rate cut"
+
+    # Aliases
+    clean_state.pending_markets = False
+    clean_state.pending_markets_filter = ""
+    reply_biz = handle_command("/business inflation", clean_state)
+    assert "inflation" in reply_biz
+    assert clean_state.pending_markets is True
+    assert clean_state.pending_markets_filter == "inflation"
+
+    clean_state.pending_markets = False
+    handle_command("/finance", clean_state)
+    assert clean_state.pending_markets is True
+
+    clean_state.pending_markets = False
+    handle_command("/macro", clean_state)
     assert clean_state.pending_markets is True
 
 

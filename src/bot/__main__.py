@@ -32,9 +32,15 @@ def main() -> int:
         default=False,
         help="Force compiling and dispatching crypto day-trading intelligence report",
     )
+    parser.add_argument(
+        "--markets",
+        action="store_true",
+        default=False,
+        help="Force compiling and dispatching business & market intelligence report",
+    )
     args = parser.parse_args()
 
-    # Also check DRY_RUN, FORCE_DIGEST, and FORCE_CRYPTO env vars (for workflow dispatch)
+    # Also check DRY_RUN, FORCE_DIGEST, FORCE_CRYPTO, and FORCE_MARKETS env vars
     dry_run: bool = args.dry_run or os.environ.get("DRY_RUN", "").lower() in (
         "true",
         "1",
@@ -50,6 +56,11 @@ def main() -> int:
         "1",
         "yes",
     )
+    force_markets: bool = args.markets or os.environ.get("FORCE_MARKETS", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
     setup_logging()
     logger = get_logger(__name__)
@@ -59,6 +70,7 @@ def main() -> int:
             "dry_run": dry_run,
             "force_digest": force_digest,
             "force_crypto": force_crypto,
+            "force_markets": force_markets,
         },
     )
 
@@ -68,6 +80,7 @@ def main() -> int:
                 dry_run=dry_run,
                 force_digest=force_digest,
                 force_crypto=force_crypto,
+                force_markets=force_markets,
             )
         )
         logger.info("bot finished successfully")

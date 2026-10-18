@@ -98,6 +98,31 @@ sources:
     enabled: true
 
   # --- Business / Macro ---
+  - id: cnbc_business
+    name: CNBC Business & Economy
+    url: https://search.cnbc.com/rs/search/view.html?partnerId=2000&keywords=business&f=rss
+    sector: business
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: wsj_business
+    name: Wall Street Journal - Business
+    url: https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml
+    sector: business
+    trust_tier: major
+    extract_mode: rss_only
+    enabled: true
+    notes: Paywalled; RSS snippet mode
+
+  - id: fortune_business
+    name: Fortune Magazine
+    url: https://fortune.com/feed/
+    sector: business
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
   - id: fed_press
     name: Federal Reserve Press Releases
     url: https://www.federalreserve.gov/feeds/press_all.xml
@@ -140,6 +165,47 @@ sources:
     notes: Disabled — IMF website requires JS challenge / redirect
 
   # --- Markets / Day Trading ---
+  - id: cnbc_markets
+    name: CNBC Markets & Stocks
+    url: https://www.cnbc.com/id/10000664/device/rss/rss.html
+    sector: markets
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: marketwatch_top
+    name: MarketWatch Top Stories
+    url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+    sector: markets
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: wsj_markets
+    name: Wall Street Journal - Markets
+    url: https://feeds.a.dj.com/rss/RSSMarketsMain.xml
+    sector: markets
+    trust_tier: major
+    extract_mode: rss_only
+    enabled: true
+    notes: Paywalled; RSS snippet mode
+
+  - id: et_markets
+    name: Economic Times - Markets
+    url: https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms
+    sector: markets
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: mint_markets
+    name: Mint - Markets
+    url: https://www.livemint.com/rss/markets
+    sector: markets
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
   - id: yahoo_finance
     name: Yahoo Finance
     url: https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC

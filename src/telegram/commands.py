@@ -79,7 +79,7 @@ def handle_command(
         return _handle_digest(state)
     elif cmd == "/crypto":
         return _handle_crypto(args, state)
-    elif cmd == "/markets":
+    elif cmd in ("/markets", "/business", "/finance", "/macro"):
         return _handle_markets(args, state)
     elif cmd == "/pause":
         return _handle_pause(state)
@@ -97,7 +97,7 @@ def _handle_help() -> str:
         "🤖 <b>Telegram News Bot Commands</b>\n\n"
         "• /status — Current bot operational status and LLM usage\n"
         "• /crypto [term] — On-demand crypto & day-trading market news\n"
-        "• /markets — On-demand stock market & macro trading news\n"
+        "• /markets [term] — On-demand business & market news (aliases: /business, /finance)\n"
         "• /digest — Request an immediate full daily news digest\n"
         "• /sectors — View sectors and their active/muted status\n"
         "• /mute &lt;sector&gt; — Mute news alerts for a sector\n"
@@ -265,8 +265,13 @@ def _handle_crypto(args: list[str], state: BotState) -> str:
 
 def _handle_markets(args: list[str], state: BotState) -> str:
     state.pending_markets = True
+    filter_arg = " ".join(args).strip() if args else ""
+    state.pending_markets_filter = filter_arg
+
+    filter_notice = f" (filtered by: <code>{html.escape(filter_arg)}</code>)" if filter_arg else ""
     return (
-        "📈 <b>Market & Day Trading News Requested</b>\n\n"
-        "Scanning Yahoo Finance, business wire, and market feeds for today's trading movers...\n\n"
+        f"📈 <b>Business & Market Intelligence Requested</b>{filter_notice}\n\n"
+        "Scanning CNBC, WSJ, MarketWatch, Fortune, Mint, ET, and central bank feeds for "
+        "macroeconomic, business, and trading headlines...\n\n"
         "<i>Delivering updates shortly.</i>\n\n" + NOT_FINANCIAL_ADVICE_NOTICE
     )

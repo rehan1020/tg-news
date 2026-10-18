@@ -18,6 +18,10 @@ on:
         description: "Force compiling and dispatching crypto day-trading intelligence report"
         type: boolean
         default: false
+      markets_news:
+        description: "Force compiling and dispatching business & market intelligence report"
+        type: boolean
+        default: false
 
 concurrency:
   group: news-bot-run
@@ -70,6 +74,7 @@ jobs:
           TIMEZONE: ${{ secrets.TIMEZONE }}
           FORCE_DIGEST: ${{ inputs.force_digest }}
           FORCE_CRYPTO: ${{ inputs.crypto_news }}
+          FORCE_MARKETS: ${{ inputs.markets_news }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             python -m src.bot --dry-run
