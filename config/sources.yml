@@ -70,6 +70,15 @@ sources:
     sector: india
     trust_tier: major
     extract_mode: full
+    enabled: false
+    notes: Disabled — Indian Express blocks cloud/datacenter IP ranges with HTTP 403
+
+  - id: ndtv_india
+    name: NDTV News - India
+    url: https://feeds.feedburner.com/ndtvnews-india-news
+    sector: india
+    trust_tier: major
+    extract_mode: full
     enabled: true
 
   - id: livemint
