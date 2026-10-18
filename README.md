@@ -71,11 +71,13 @@ For detailed step-by-step instructions with optional API keys and private config
 Interact directly with your bot using these owner commands:
 
 - `/status` — View uptime, feed statuses, LLM quota consumption, and queued digest count.
+- `/crypto [term]` — On-demand crypto & day-trading intelligence (e.g. `/crypto` or `/crypto btc`).
+- `/markets` — On-demand stock market & day-trading movers.
+- `/digest` — Request an immediate, on-demand curated news digest across all sectors.
 - `/sectors` — Toggle or inspect active sectors (`world`, `india`, `business`, `markets`, `crypto`).
 - `/mute <sector>` / `/unmute <sector>` — Suppress or restore alerts for any sector.
 - `/watchlist` — View current watchlist keywords and stock/crypto tickers.
 - `/watch add <term>` / `/watch remove <term>` — Dynamically modify watchlist terms.
-- `/digest` — Request an immediate, on-demand curated news digest.
 - `/pause` / `/resume` — Pause or resume alert delivery.
 - `/help` — View full command list and disclaimers.
 
