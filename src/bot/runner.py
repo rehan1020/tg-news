@@ -6,6 +6,7 @@ import asyncio
 import html
 import os
 import random
+from typing import Any
 
 from src.bot.config import BotConfig, load_config
 from src.bot.logger import get_logger
@@ -21,6 +22,7 @@ from src.telegram.commands import handle_command
 from src.telegram.digest import (
     check_due_digest_slots,
     format_digest_messages,
+    format_sector_digest_messages,
     get_current_local_time,
     item_to_digest_dict,
 )
@@ -41,10 +43,16 @@ async def run(
     *,
     dry_run: bool = False,
     force_digest: bool = False,
+    force_crypto: bool = False,
     config_override: BotConfig | None = None,
 ) -> None:
     """Execute the full bot pipeline."""
     config = config_override or load_config(dry_run=dry_run)
+    force_crypto = force_crypto or os.environ.get("FORCE_CRYPTO", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
     # Step 1: Random start delay (only apply on scheduled cron runs, skip on manual dispatch)
     is_manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
@@ -74,6 +82,8 @@ async def run(
     logger.info("telegram updates received", extra={"count": len(updates)})
 
     on_demand_requested = False
+    on_crypto_requested = False
+    on_markets_requested = False
     for upd in updates:
         msg = upd.get("message") or upd.get("channel_post") or {}
         text = msg.get("text", "")
@@ -82,6 +92,10 @@ async def run(
             await telegram.send_message(reply)
             if state.pending_digest:
                 on_demand_requested = True
+            if state.pending_crypto:
+                on_crypto_requested = True
+            if state.pending_markets:
+                on_markets_requested = True
 
     # Step 4: Poll feeds (conditional GET, health tracking)
     fetcher = FeedFetcher()
@@ -271,6 +285,89 @@ async def run(
                 state.digest_history[due_slot_key] = True
             state.pending_digest = False
 
+    # Step 10: On-demand Crypto Intelligence dispatch
+    if (on_crypto_requested or state.pending_crypto or force_crypto) and not state.paused:
+        logger.info(
+            "processing on-demand crypto request",
+            extra={"filter": state.pending_crypto_filter},
+        )
+        crypto_items = _collect_sector_items(
+            sector="crypto",
+            clusters=clusters,
+            raw_items=raw_items,
+            digest_queue=state.digest_queue,
+            filter_term=state.pending_crypto_filter,
+            max_items=8,
+        )
+        if crypto_items:
+            for c_itm in crypto_items:
+                if not c_itm.get("summary"):
+                    txt, _ = await extractor.extract_text(
+                        c_itm["url"],
+                        extract_mode="full",
+                        snippet_fallback="",
+                    )
+                    s_bullets, _ = await llm_orchestrator.summarize_story(
+                        title=c_itm["headline"],
+                        text=txt,
+                        snippet="",
+                        state=state,
+                    )
+                    c_itm["summary"] = s_bullets
+            c_msgs = format_sector_digest_messages(
+                crypto_items,
+                title="Crypto Market & Trading Intelligence",
+                icon="🪙",
+                filter_term=state.pending_crypto_filter,
+            )
+            for m in c_msgs:
+                await telegram.send_message(m)
+        else:
+            await telegram.send_message(
+                "🪙 No active crypto market stories found matching your request right now."
+            )
+        state.pending_crypto = False
+        state.pending_crypto_filter = ""
+
+    # Step 11: On-demand Markets & Day Trading dispatch
+    if (on_markets_requested or state.pending_markets) and not state.paused:
+        logger.info("processing on-demand markets request")
+        market_items = _collect_sector_items(
+            sector="markets",
+            clusters=clusters,
+            raw_items=raw_items,
+            digest_queue=state.digest_queue,
+            filter_term="",
+            max_items=8,
+        )
+        if market_items:
+            for m_itm in market_items:
+                if not m_itm.get("summary"):
+                    txt, _ = await extractor.extract_text(
+                        m_itm["url"],
+                        extract_mode="full",
+                        snippet_fallback="",
+                    )
+                    s_bullets, _ = await llm_orchestrator.summarize_story(
+                        title=m_itm["headline"],
+                        text=txt,
+                        snippet="",
+                        state=state,
+                    )
+                    m_itm["summary"] = s_bullets
+            m_msgs = format_sector_digest_messages(
+                market_items,
+                title="Market & Day Trading Movers",
+                icon="📈",
+            )
+            for m in m_msgs:
+                await telegram.send_message(m)
+        else:
+            await telegram.send_message(
+                "📈 No active market trading stories found in monitored feeds right now."
+            )
+        state.pending_markets = False
+
     # Prune state retention and persist
     state.prune_retention()
     state_manager.save_state(state)
@@ -285,3 +382,55 @@ async def run(
             "digest_sent": digest_sent,
         },
     )
+
+
+def _collect_sector_items(
+    sector: str,
+    clusters: list[Any],
+    raw_items: list[Any],
+    digest_queue: list[dict[str, Any]],
+    filter_term: str = "",
+    max_items: int = 8,
+) -> list[dict[str, Any]]:
+    """Gather and rank items for a specific sector, optionally filtering by keyword."""
+    items_by_url: dict[str, dict[str, Any]] = {}
+    term_lower = filter_term.lower().strip()
+
+    # 1. From clusters
+    for cl in clusters:
+        p = cl.primary_item
+        if p.sector.lower() == sector.lower():
+            if (
+                term_lower
+                and term_lower not in p.title.lower()
+                and term_lower not in (p.summary_raw or "").lower()
+            ):
+                continue
+            itm = item_to_digest_dict(p, cluster_size=cl.size, score=0.7)
+            items_by_url[itm["url"]] = itm
+
+    # 2. Check raw items for any other stories
+    for r in raw_items:
+        if r.sector.lower() == sector.lower() and r.url not in items_by_url:
+            if (
+                term_lower
+                and term_lower not in r.title.lower()
+                and term_lower not in (r.summary_raw or "").lower()
+            ):
+                continue
+            itm = item_to_digest_dict(r, cluster_size=1, score=0.6)
+            items_by_url[itm["url"]] = itm
+
+    # 3. Check digest queue
+    for q in digest_queue:
+        if q.get("sector", "").lower() == sector.lower() and q.get("url") not in items_by_url:
+            if term_lower and term_lower not in q.get("headline", "").lower():
+                continue
+            items_by_url[q["url"]] = dict(q)
+
+    collected = list(items_by_url.values())
+    collected.sort(
+        key=lambda x: (x.get("score", 0.0), x.get("published_at", 0.0)),
+        reverse=True,
+    )
+    return collected[:max_items]

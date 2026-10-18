@@ -14,6 +14,10 @@ on:
         description: "Force compiling and dispatching digest regardless of schedule"
         type: boolean
         default: false
+      crypto_news:
+        description: "Force compiling and dispatching crypto day-trading intelligence report"
+        type: boolean
+        default: false
 
 concurrency:
   group: news-bot-run
@@ -65,6 +69,7 @@ jobs:
           QUIET_HOURS: ${{ secrets.QUIET_HOURS }}
           TIMEZONE: ${{ secrets.TIMEZONE }}
           FORCE_DIGEST: ${{ inputs.force_digest }}
+          FORCE_CRYPTO: ${{ inputs.crypto_news }}
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             python -m src.bot --dry-run

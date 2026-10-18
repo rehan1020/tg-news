@@ -43,6 +43,9 @@ class BotState:
     digest_history: dict[str, bool] = field(default_factory=dict)
     digest_queue: list[dict[str, Any]] = field(default_factory=list)
     pending_digest: bool = False
+    pending_crypto: bool = False
+    pending_crypto_filter: str = ""
+    pending_markets: bool = False
     llm_usage: dict[str, Any] = field(
         default_factory=lambda: {
             "day": time.strftime("%Y-%m-%d"),
@@ -94,6 +97,9 @@ class BotState:
             digest_history=data.get("digest_history", {}),
             digest_queue=data.get("digest_queue", []),
             pending_digest=data.get("pending_digest", False),
+            pending_crypto=data.get("pending_crypto", False),
+            pending_crypto_filter=data.get("pending_crypto_filter", ""),
+            pending_markets=data.get("pending_markets", False),
             llm_usage=data.get(
                 "llm_usage",
                 {

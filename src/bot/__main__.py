@@ -26,9 +26,15 @@ def main() -> int:
         default=False,
         help="Force compiling and dispatching digest regardless of schedule",
     )
+    parser.add_argument(
+        "--crypto",
+        action="store_true",
+        default=False,
+        help="Force compiling and dispatching crypto day-trading intelligence report",
+    )
     args = parser.parse_args()
 
-    # Also check DRY_RUN and FORCE_DIGEST env vars (for workflow dispatch)
+    # Also check DRY_RUN, FORCE_DIGEST, and FORCE_CRYPTO env vars (for workflow dispatch)
     dry_run: bool = args.dry_run or os.environ.get("DRY_RUN", "").lower() in (
         "true",
         "1",
@@ -39,13 +45,31 @@ def main() -> int:
         "1",
         "yes",
     )
+    force_crypto: bool = args.crypto or os.environ.get("FORCE_CRYPTO", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
 
     setup_logging()
     logger = get_logger(__name__)
-    logger.info("bot starting", extra={"dry_run": dry_run, "force_digest": force_digest})
+    logger.info(
+        "bot starting",
+        extra={
+            "dry_run": dry_run,
+            "force_digest": force_digest,
+            "force_crypto": force_crypto,
+        },
+    )
 
     try:
-        asyncio.run(run(dry_run=dry_run, force_digest=force_digest))
+        asyncio.run(
+            run(
+                dry_run=dry_run,
+                force_digest=force_digest,
+                force_crypto=force_crypto,
+            )
+        )
         logger.info("bot finished successfully")
         return 0
     except Exception:

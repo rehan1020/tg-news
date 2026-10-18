@@ -10,6 +10,7 @@ from src.feeds.models import FeedItem
 from src.telegram.digest import (
     check_due_digest_slots,
     format_digest_messages,
+    format_sector_digest_messages,
     item_to_digest_dict,
 )
 
@@ -156,3 +157,33 @@ def test_item_to_digest_dict():
     assert d["cluster_size"] == 4
     assert d["source_name"] == "BBC News"
     assert "Consensus reached" in d["summary"]
+
+
+def test_format_sector_digest_messages():
+    """Sector digest formats crypto stories with trading disclaimer."""
+    items = [
+        {
+            "headline": "Bitcoin Crosses $70,000 Milestone",
+            "url": "https://coindesk.com/btc-70k",
+            "sector": "crypto",
+            "source_name": "CoinDesk",
+            "published_at": time.time() - 600,
+            "cluster_size": 3,
+            "summary": "• Institutional inflows hit all-time high.\n• Volatility increases.",
+        }
+    ]
+
+    messages = format_sector_digest_messages(
+        items,
+        title="Crypto Market Intelligence",
+        icon="🪙",
+        filter_term="btc",
+    )
+    assert len(messages) == 1
+    msg = messages[0]
+    assert "CRYPTO MARKET INTELLIGENCE" in msg
+    assert "btc" in msg
+    assert "Bitcoin Crosses $70,000 Milestone" in msg
+    assert "CoinDesk" in msg
+    assert "(+2 sources)" in msg
+    assert "Not financial, investment, or trading advice" in msg

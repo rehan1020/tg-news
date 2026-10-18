@@ -31,4 +31,14 @@ class TestMainEntrypoint:
         ):
             ret = main()
             assert ret == 0
-            mock_run.assert_called_once_with(dry_run=True, force_digest=True)
+            mock_run.assert_called_once_with(dry_run=True, force_digest=True, force_crypto=False)
+
+    def test_main_crypto_flag(self):
+        """CLI main with --crypto should pass force_crypto flag."""
+        with (
+            patch("sys.argv", ["bot", "--dry-run", "--crypto"]),
+            patch("src.bot.__main__.run") as mock_run,
+        ):
+            ret = main()
+            assert ret == 0
+            mock_run.assert_called_once_with(dry_run=True, force_digest=False, force_crypto=True)

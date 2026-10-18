@@ -140,3 +140,53 @@ def format_digest_messages(
     # Join with separator and chunk if necessary
     full_text = "\n\n━━━━━━━━━━━━━━━━━━━━\n\n".join(story_blocks)
     return TelegramClient._chunk_message(full_text, max_chars=4000)
+
+
+def format_sector_digest_messages(
+    items: list[dict[str, Any]],
+    title: str = "Crypto Market Intelligence",
+    icon: str = "🪙",
+    filter_term: str = "",
+) -> list[str]:
+    """Format an on-demand sector digest (e.g. crypto or markets for day trading)."""
+    if not items:
+        return []
+
+    filter_desc = f" | Filter: <code>{html.escape(filter_term)}</code>" if filter_term else ""
+    sub_desc = f"Curated live trading news & market intelligence ({len(items)} items){filter_desc}"
+    header = f"{icon} <b>{html.escape(title.upper())}</b>\n<i>{sub_desc}</i>\n━━━━━━━━━━━━━━━━━━━━"
+
+    story_blocks: list[str] = [header]
+
+    for itm in items:
+        sector_name = itm.get("sector", "crypto")
+        sector_tag = SECTOR_EMOJIS.get(sector_name, f"#{sector_name.upper()}")
+        headline = html.escape(itm.get("headline", "Untitled"))
+        url = html.escape(itm.get("url", ""), quote=True)
+        source = html.escape(itm.get("source_name", "Source"))
+        published_at = itm.get("published_at", time.time())
+        rel_time = format_relative_time(published_at)
+        cluster_size = itm.get("cluster_size", 1)
+        summary = itm.get("summary", "")
+
+        block_lines = [
+            f"<b>{sector_tag}</b>",
+            f"<b>{headline}</b>",
+        ]
+        if summary:
+            block_lines.append(html.escape(summary))
+
+        footer = f"<i>{source} • {rel_time}</i>"
+        if cluster_size > 1:
+            footer += f" <i>(+{cluster_size - 1} sources)</i>"
+        block_lines.append(footer)
+        block_lines.append(f'<a href="{url}">Read original</a>')
+
+        story_blocks.append("\n\n".join(block_lines))
+
+    story_blocks.append(
+        "⚠️ <i>Informational purposes only. Not financial, investment, or trading advice.</i>"
+    )
+
+    full_text = "\n\n━━━━━━━━━━━━━━━━━━━━\n\n".join(story_blocks)
+    return TelegramClient._chunk_message(full_text, max_chars=4000)

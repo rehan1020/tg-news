@@ -77,6 +77,10 @@ def handle_command(
         return _handle_watchlist(state)
     elif cmd == "/digest":
         return _handle_digest(state)
+    elif cmd == "/crypto":
+        return _handle_crypto(args, state)
+    elif cmd == "/markets":
+        return _handle_markets(args, state)
     elif cmd == "/pause":
         return _handle_pause(state)
     elif cmd == "/resume":
@@ -92,13 +96,15 @@ def _handle_help() -> str:
     return (
         "🤖 <b>Telegram News Bot Commands</b>\n\n"
         "• /status — Current bot operational status and LLM usage\n"
+        "• /crypto [term] — On-demand crypto & day-trading market news\n"
+        "• /markets — On-demand stock market & macro trading news\n"
+        "• /digest — Request an immediate full daily news digest\n"
         "• /sectors — View sectors and their active/muted status\n"
         "• /mute &lt;sector&gt; — Mute news alerts for a sector\n"
         "• /unmute &lt;sector&gt; — Unmute news alerts for a sector\n"
         "• /watchlist — View active watchlist keywords\n"
         "• /watch add &lt;term&gt; — Add a term or ticker to watchlist\n"
         "• /watch remove &lt;term&gt; — Remove a term from watchlist\n"
-        "• /digest — Request an immediate on-demand news digest\n"
         "• /pause — Pause delivery of breaking alerts and digests\n"
         "• /resume — Resume news delivery\n"
         "• /help — Show this help message\n\n" + NOT_FINANCIAL_ADVICE_NOTICE
@@ -241,3 +247,26 @@ def _handle_pause(state: BotState) -> str:
 def _handle_resume(state: BotState) -> str:
     state.paused = False
     return "▶️ <b>News Delivery Resumed</b>\n\nBreaking alerts and digests will be delivered."
+
+
+def _handle_crypto(args: list[str], state: BotState) -> str:
+    state.pending_crypto = True
+    filter_arg = " ".join(args).strip() if args else ""
+    state.pending_crypto_filter = filter_arg
+
+    filter_notice = f" (filtered by: <code>{html.escape(filter_arg)}</code>)" if filter_arg else ""
+    return (
+        f"🪙 <b>Crypto Intelligence Requested</b>{filter_notice}\n\n"
+        "Scanning CoinDesk, Cointelegraph, The Block, and market sources for the latest "
+        "crypto & day-trading headlines...\n\n"
+        "<i>Delivering updates shortly.</i>\n\n" + NOT_FINANCIAL_ADVICE_NOTICE
+    )
+
+
+def _handle_markets(args: list[str], state: BotState) -> str:
+    state.pending_markets = True
+    return (
+        "📈 <b>Market & Day Trading News Requested</b>\n\n"
+        "Scanning Yahoo Finance, business wire, and market feeds for today's trading movers...\n\n"
+        "<i>Delivering updates shortly.</i>\n\n" + NOT_FINANCIAL_ADVICE_NOTICE
+    )

@@ -29,6 +29,8 @@ def test_help_command(clean_state):
     assert "/unmute" in reply
     assert "/watch" in reply
     assert "/digest" in reply
+    assert "/crypto" in reply
+    assert "/markets" in reply
     assert "/pause" in reply
     assert "/resume" in reply
     assert NOT_FINANCIAL_ADVICE_NOTICE in reply
@@ -119,6 +121,30 @@ def test_digest_command(clean_state):
     reply = handle_command("/digest", clean_state)
     assert "On-demand digest requested" in reply
     assert clean_state.pending_digest is True
+
+
+def test_crypto_command(clean_state):
+    """Crypto command triggers pending_crypto flag with optional filter."""
+    assert clean_state.pending_crypto is False
+    reply = handle_command("/crypto", clean_state)
+    assert "Crypto" in reply
+    assert clean_state.pending_crypto is True
+    assert clean_state.pending_crypto_filter == ""
+
+    # With filter argument
+    clean_state.pending_crypto = False
+    reply_filtered = handle_command("/crypto btc", clean_state)
+    assert "btc" in reply_filtered
+    assert clean_state.pending_crypto is True
+    assert clean_state.pending_crypto_filter == "btc"
+
+
+def test_markets_command(clean_state):
+    """Markets command triggers pending_markets flag."""
+    assert clean_state.pending_markets is False
+    reply = handle_command("/markets", clean_state)
+    assert "Market" in reply
+    assert clean_state.pending_markets is True
 
 
 def test_pause_and_resume_command(clean_state):
