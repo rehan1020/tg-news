@@ -179,6 +179,9 @@ class TelegramClient:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url, params=params)
+                if resp.status_code == 409:
+                    logger.info("telegram webhook is active; skipping getUpdates polling")
+                    return []
                 if resp.status_code != 200:
                     logger.warning(
                         "getUpdates returned non-200", extra={"status": resp.status_code}

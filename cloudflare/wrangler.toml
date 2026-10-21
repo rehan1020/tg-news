@@ -1,0 +1,8 @@
+name = "tg-news-relay"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Scheduled cron trigger: runs every 15 minutes reliably
+# Bypasses GitHub Actions internal cron delays
+[triggers]
+crons = ["*/15 * * * *"]

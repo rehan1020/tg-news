@@ -60,8 +60,8 @@ async def run(
         "yes",
     )
 
-    # Step 1: Random start delay (only apply on scheduled cron runs, skip on manual dispatch)
-    is_manual = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+    # Step 1: Random start delay (apply on scheduled cron, skip on manual/external dispatch)
+    is_manual = os.environ.get("GITHUB_EVENT_NAME") in ("workflow_dispatch", "repository_dispatch")
     if not dry_run and not is_manual:
         await apply_start_delay(config.max_start_delay_seconds)
     else:
@@ -90,6 +90,21 @@ async def run(
     on_demand_requested = False
     on_crypto_requested = False
     on_markets_requested = False
+
+    # Check for command passed directly via external repository dispatch (e.g. Cloudflare webhook)
+    dispatch_cmd = os.environ.get("DISPATCH_COMMAND", "").strip()
+    if dispatch_cmd:
+        logger.info("processing dispatch command from payload", extra={"command": dispatch_cmd})
+        reply = handle_command(dispatch_cmd, state, feed_health=state.feed_states)
+        if reply:
+            await telegram.send_message(reply)
+            if state.pending_digest:
+                on_demand_requested = True
+            if state.pending_crypto:
+                on_crypto_requested = True
+            if state.pending_markets:
+                on_markets_requested = True
+
     for upd in updates:
         msg = upd.get("message") or upd.get("channel_post") or {}
         text = msg.get("text", "")

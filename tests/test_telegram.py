@@ -118,3 +118,20 @@ async def test_owner_lock_ignores_non_owner():
     assert len(owner_updates) == 1
     assert owner_updates[0]["update_id"] == 102
     assert state.telegram_update_offset == 103
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_webhook_active_409_graceful():
+    client = TelegramClient(
+        bot_token="mock",
+        owner_chat_id="12345",
+        dry_run=False,
+    )
+    respx.get(url__startswith="https://api.telegram.org/botmock/getUpdates").respond(
+        status_code=409,
+        json={"ok": False, "description": "Conflict: can't use getUpdates while webhook is active"},
+    )
+    state = BotState()
+    updates = await client.get_owner_updates(state)
+    assert updates == []
