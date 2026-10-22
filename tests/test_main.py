@@ -32,7 +32,12 @@ class TestMainEntrypoint:
             ret = main()
             assert ret == 0
             mock_run.assert_called_once_with(
-                dry_run=True, force_digest=True, force_crypto=False, force_markets=False
+                dry_run=True,
+                force_digest=True,
+                force_crypto=False,
+                force_markets=False,
+                force_world=False,
+                force_india=False,
             )
 
     def test_main_crypto_flag(self):
@@ -44,7 +49,12 @@ class TestMainEntrypoint:
             ret = main()
             assert ret == 0
             mock_run.assert_called_once_with(
-                dry_run=True, force_digest=False, force_crypto=True, force_markets=False
+                dry_run=True,
+                force_digest=False,
+                force_crypto=True,
+                force_markets=False,
+                force_world=False,
+                force_india=False,
             )
 
     def test_main_markets_flag(self):
@@ -56,5 +66,44 @@ class TestMainEntrypoint:
             ret = main()
             assert ret == 0
             mock_run.assert_called_once_with(
-                dry_run=True, force_digest=False, force_crypto=False, force_markets=True
+                dry_run=True,
+                force_digest=False,
+                force_crypto=False,
+                force_markets=True,
+                force_world=False,
+                force_india=False,
+            )
+
+    def test_main_world_flag(self):
+        """CLI main with --world should pass force_world flag."""
+        with (
+            patch("sys.argv", ["bot", "--dry-run", "--world"]),
+            patch("src.bot.__main__.run") as mock_run,
+        ):
+            ret = main()
+            assert ret == 0
+            mock_run.assert_called_once_with(
+                dry_run=True,
+                force_digest=False,
+                force_crypto=False,
+                force_markets=False,
+                force_world=True,
+                force_india=False,
+            )
+
+    def test_main_india_flag(self):
+        """CLI main with --india should pass force_india flag."""
+        with (
+            patch("sys.argv", ["bot", "--dry-run", "--india"]),
+            patch("src.bot.__main__.run") as mock_run,
+        ):
+            ret = main()
+            assert ret == 0
+            mock_run.assert_called_once_with(
+                dry_run=True,
+                force_digest=False,
+                force_crypto=False,
+                force_markets=False,
+                force_world=False,
+                force_india=True,
             )

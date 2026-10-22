@@ -27,12 +27,57 @@ breaking_keywords:
     - nuclear
     - emergency
     - martial law
+    - war
+    - airstrike
+    - missiles
+    - treaty
+    - summit
+    - un security council
+    - nato
+    - bilateral
+    - diplomacy
+    - embassy
+    - military exercise
+    - conflict
+    - hostage
+    - terror attack
+    - border clash
+    - escalation
+    - peace talks
+    - ballistic
+    - sovereignty
+    - annex
+    - offensive
+    - airspace
   india:
     - emergency
     - curfew
     - parliament
     - supreme court
     - election result
+    - lok sabha
+    - rajya sabha
+    - cabinet
+    - prime minister
+    - modi
+    - president
+    - high court
+    - isro
+    - army
+    - navy
+    - air force
+    - border
+    - bilateral
+    - kashmir
+    - ladakh
+    - ordinance
+    - governor
+    - cbi
+    - ed
+    - nia
+    - bill passed
+    - assembly
+    - bypoll
   business:
     - rate decision
     - rate cut

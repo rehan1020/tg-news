@@ -45,6 +45,8 @@ async def run(
     force_digest: bool = False,
     force_crypto: bool = False,
     force_markets: bool = False,
+    force_world: bool = False,
+    force_india: bool = False,
     config_override: BotConfig | None = None,
 ) -> None:
     """Execute the full bot pipeline."""
@@ -55,6 +57,16 @@ async def run(
         "yes",
     )
     force_markets = force_markets or os.environ.get("FORCE_MARKETS", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    force_world = force_world or os.environ.get("FORCE_WORLD", "").lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    force_india = force_india or os.environ.get("FORCE_INDIA", "").lower() in (
         "true",
         "1",
         "yes",
@@ -90,6 +102,8 @@ async def run(
     on_demand_requested = False
     on_crypto_requested = False
     on_markets_requested = False
+    on_world_requested = False
+    on_india_requested = False
 
     # Check for command passed directly via external repository dispatch (e.g. Cloudflare webhook)
     dispatch_cmd = os.environ.get("DISPATCH_COMMAND", "").strip()
@@ -104,6 +118,10 @@ async def run(
                 on_crypto_requested = True
             if state.pending_markets:
                 on_markets_requested = True
+            if state.pending_world:
+                on_world_requested = True
+            if state.pending_india:
+                on_india_requested = True
 
     for upd in updates:
         msg = upd.get("message") or upd.get("channel_post") or {}
@@ -117,6 +135,10 @@ async def run(
                 on_crypto_requested = True
             if state.pending_markets:
                 on_markets_requested = True
+            if state.pending_world:
+                on_world_requested = True
+            if state.pending_india:
+                on_india_requested = True
 
     # Step 4: Poll feeds (conditional GET, health tracking)
     fetcher = FeedFetcher()
@@ -248,12 +270,11 @@ async def run(
             if due_slot_key:
                 state.digest_history[due_slot_key] = True
         else:
-            # Filter out muted sectors
+            # Filter out muted sectors and balance across sectors
             active_items = [
                 q for q in state.digest_queue if q.get("sector") not in state.muted_sectors
             ]
-            active_items.sort(key=lambda x: x.get("score", 0.0), reverse=True)
-            top_digest_items = active_items[:8]
+            top_digest_items = _select_balanced_digest_items(active_items, max_items=8)
 
             # In force_digest mode, if queue had few items, backfill from freshest clusters
             if len(top_digest_items) < 4 and force_digest and clusters:
@@ -394,6 +415,94 @@ async def run(
         state.pending_markets = False
         state.pending_markets_filter = ""
 
+    # Step 12: On-demand World & Geopolitics dispatch
+    if (on_world_requested or state.pending_world or force_world) and not state.paused:
+        logger.info(
+            "processing on-demand world request",
+            extra={"filter": state.pending_world_filter},
+        )
+        world_items = _collect_sector_items(
+            sector="world",
+            clusters=clusters,
+            raw_items=raw_items,
+            digest_queue=state.digest_queue,
+            filter_term=state.pending_world_filter,
+            max_items=8,
+        )
+        if world_items:
+            for w_itm in world_items:
+                if not w_itm.get("summary"):
+                    txt, _ = await extractor.extract_text(
+                        w_itm["url"],
+                        extract_mode="full",
+                        snippet_fallback="",
+                    )
+                    s_bullets, _ = await llm_orchestrator.summarize_story(
+                        title=w_itm["headline"],
+                        text=txt,
+                        snippet="",
+                        state=state,
+                    )
+                    w_itm["summary"] = s_bullets
+            w_msgs = format_sector_digest_messages(
+                world_items,
+                title="World & Geopolitical Intelligence",
+                icon="🌍",
+                filter_term=state.pending_world_filter,
+            )
+            for m in w_msgs:
+                await telegram.send_message(m)
+        else:
+            await telegram.send_message(
+                "🌍 No active world or geopolitical stories found matching your request right now."
+            )
+        state.pending_world = False
+        state.pending_world_filter = ""
+
+    # Step 13: On-demand India & National dispatch
+    if (on_india_requested or state.pending_india or force_india) and not state.paused:
+        logger.info(
+            "processing on-demand india request",
+            extra={"filter": state.pending_india_filter},
+        )
+        india_items = _collect_sector_items(
+            sector="india",
+            clusters=clusters,
+            raw_items=raw_items,
+            digest_queue=state.digest_queue,
+            filter_term=state.pending_india_filter,
+            max_items=8,
+        )
+        if india_items:
+            for i_itm in india_items:
+                if not i_itm.get("summary"):
+                    txt, _ = await extractor.extract_text(
+                        i_itm["url"],
+                        extract_mode="full",
+                        snippet_fallback="",
+                    )
+                    s_bullets, _ = await llm_orchestrator.summarize_story(
+                        title=i_itm["headline"],
+                        text=txt,
+                        snippet="",
+                        state=state,
+                    )
+                    i_itm["summary"] = s_bullets
+            i_msgs = format_sector_digest_messages(
+                india_items,
+                title="India & National News Intelligence",
+                icon="🇮🇳",
+                filter_term=state.pending_india_filter,
+            )
+            for m in i_msgs:
+                await telegram.send_message(m)
+        else:
+            await telegram.send_message(
+                "🇮🇳 No active India or national news stories found matching your request right now."
+            )
+        state.pending_india = False
+        state.pending_india_filter = ""
+
     # Prune state retention and persist
     state.prune_retention()
     state_manager.save_state(state)
@@ -461,3 +570,46 @@ def _collect_sector_items(
         reverse=True,
     )
     return collected[:max_items]
+
+
+def _select_balanced_digest_items(
+    items: list[dict[str, Any]],
+    max_items: int = 8,
+) -> list[dict[str, Any]]:
+    """Select items balancing across sectors via round-robin, prioritized by score."""
+    if not items:
+        return []
+    if len(items) <= max_items:
+        return sorted(items, key=lambda x: x.get("score", 0.0), reverse=True)
+
+    # Group by sector, sorted descending by score within each sector
+    by_sector: dict[str, list[dict[str, Any]]] = {}
+    for item in sorted(items, key=lambda x: x.get("score", 0.0), reverse=True):
+        sec = item.get("sector", "other")
+        by_sector.setdefault(sec, []).append(item)
+
+    # Preferred sector ordering for round-robin
+    preferred_order = ["world", "india", "business", "markets", "crypto"]
+    # Include any sectors not in preferred_order at the end
+    ordered_sectors = [s for s in preferred_order if s in by_sector] + [
+        s for s in by_sector if s not in preferred_order
+    ]
+
+    selected: list[dict[str, Any]] = []
+    indices: dict[str, int] = {s: 0 for s in ordered_sectors}
+
+    while len(selected) < max_items:
+        added_in_round = False
+        for sec in ordered_sectors:
+            idx = indices[sec]
+            sec_items = by_sector[sec]
+            if idx < len(sec_items):
+                selected.append(sec_items[idx])
+                indices[sec] += 1
+                added_in_round = True
+                if len(selected) >= max_items:
+                    break
+        if not added_in_round:
+            break
+
+    return selected

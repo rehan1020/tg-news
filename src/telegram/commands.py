@@ -77,6 +77,10 @@ def handle_command(
         return _handle_watchlist(state)
     elif cmd == "/digest":
         return _handle_digest(state)
+    elif cmd in ("/world", "/geopolitics", "/global"):
+        return _handle_world(args, state)
+    elif cmd in ("/india", "/national"):
+        return _handle_india(args, state)
     elif cmd == "/crypto":
         return _handle_crypto(args, state)
     elif cmd in ("/markets", "/business", "/finance", "/macro"):
@@ -95,10 +99,12 @@ def handle_command(
 def _handle_help() -> str:
     return (
         "🤖 <b>Telegram News Bot Commands</b>\n\n"
-        "• /status — Current bot operational status and LLM usage\n"
-        "• /crypto [term] — On-demand crypto & day-trading market news\n"
+        "• /world [term] — On-demand world & geopolitical news (aliases: /geopolitics, /global)\n"
+        "• /india [term] — On-demand Indian national news (alias: /national)\n"
         "• /markets [term] — On-demand business & market news (aliases: /business, /finance)\n"
+        "• /crypto [term] — On-demand crypto & day-trading market news\n"
         "• /digest — Request an immediate full daily news digest\n"
+        "• /status — Current bot operational status and LLM usage\n"
         "• /sectors — View sectors and their active/muted status\n"
         "• /mute &lt;sector&gt; — Mute news alerts for a sector\n"
         "• /unmute &lt;sector&gt; — Unmute news alerts for a sector\n"
@@ -274,4 +280,30 @@ def _handle_markets(args: list[str], state: BotState) -> str:
         "Scanning CNBC, WSJ, MarketWatch, Fortune, Mint, ET, and central bank feeds for "
         "macroeconomic, business, and trading headlines...\n\n"
         "<i>Delivering updates shortly.</i>\n\n" + NOT_FINANCIAL_ADVICE_NOTICE
+    )
+
+
+def _handle_world(args: list[str], state: BotState) -> str:
+    state.pending_world = True
+    filter_arg = " ".join(args).strip() if args else ""
+    state.pending_world_filter = filter_arg
+
+    filter_notice = f" (filtered by: <code>{html.escape(filter_arg)}</code>)" if filter_arg else ""
+    return (
+        f"🌐 <b>Geopolitical & World Intelligence Requested</b>{filter_notice}\n\n"
+        "Scanning BBC, Al Jazeera, France 24, Euronews, Politico, UN News, and global wires...\n\n"
+        "<i>Delivering updates shortly.</i>"
+    )
+
+
+def _handle_india(args: list[str], state: BotState) -> str:
+    state.pending_india = True
+    filter_arg = " ".join(args).strip() if args else ""
+    state.pending_india_filter = filter_arg
+
+    filter_notice = f" (filtered by: <code>{html.escape(filter_arg)}</code>)" if filter_arg else ""
+    return (
+        f"🇮🇳 <b>National News Intelligence Requested</b>{filter_notice}\n\n"
+        "Scanning The Hindu, Hindustan Times, Times of India, News18, and NDTV...\n\n"
+        "<i>Delivering updates shortly.</i>"
     )

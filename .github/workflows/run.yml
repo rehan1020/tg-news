@@ -22,6 +22,14 @@ on:
         description: "Force compiling and dispatching business & market intelligence report"
         type: boolean
         default: false
+      world_news:
+        description: "Force compiling and dispatching world & geopolitical intelligence report"
+        type: boolean
+        default: false
+      india_news:
+        description: "Force compiling and dispatching India national news intelligence report"
+        type: boolean
+        default: false
   repository_dispatch:
     types: [news_run, telegram_command]
 
@@ -77,6 +85,8 @@ jobs:
           FORCE_DIGEST: ${{ inputs.force_digest || github.event.client_payload.force_digest || false }}
           FORCE_CRYPTO: ${{ inputs.crypto_news || github.event.client_payload.crypto_news || false }}
           FORCE_MARKETS: ${{ inputs.markets_news || github.event.client_payload.markets_news || false }}
+          FORCE_WORLD: ${{ inputs.world_news || github.event.client_payload.world_news || false }}
+          FORCE_INDIA: ${{ inputs.india_news || github.event.client_payload.india_news || false }}
           DISPATCH_COMMAND: ${{ github.event.client_payload.command || '' }}
         run: |
           if [ "${{ inputs.dry_run || github.event.client_payload.dry_run }}" = "true" ]; then

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.bot.runner import apply_start_delay, run
+from src.bot.runner import _select_balanced_digest_items, apply_start_delay, run
 
 
 class TestStartDelay:
@@ -45,3 +45,36 @@ async def test_dispatch_command_processed(mock_env):
     ):
         mock_send.return_value = True
         await run(dry_run=True)
+
+
+class TestBalancedDigestItems:
+    def test_empty_items(self):
+        assert _select_balanced_digest_items([]) == []
+
+    def test_under_max_items(self):
+        items = [
+            {"headline": "A", "sector": "world", "score": 0.5},
+            {"headline": "B", "sector": "crypto", "score": 0.9},
+        ]
+        result = _select_balanced_digest_items(items, max_items=8)
+        assert len(result) == 2
+        assert result[0]["headline"] == "B"  # sorted by score
+
+    def test_round_robin_prevents_monopoly(self):
+        # 10 market items with high scores, 2 world items with lower scores
+        items = [
+            {"headline": f"M{i}", "sector": "markets", "score": 0.9 - i * 0.01} for i in range(10)
+        ] + [
+            {"headline": "W1", "sector": "world", "score": 0.5},
+            {"headline": "W2", "sector": "world", "score": 0.45},
+            {"headline": "I1", "sector": "india", "score": 0.52},
+        ]
+        # max 6 items: round-robin should pick W1, I1, M0, then W2, M1, etc.
+        result = _select_balanced_digest_items(items, max_items=6)
+        assert len(result) == 6
+        sectors = [it["sector"] for it in result]
+        assert "world" in sectors
+        assert "india" in sectors
+        assert "markets" in sectors
+        assert sectors.count("world") >= 2
+        assert sectors.count("india") >= 1

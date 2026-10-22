@@ -17,6 +17,8 @@
 const HELP_MESSAGE = `🤖 <b>Telegram News Bot Commands</b>
 
 • /status — Current bot operational status and LLM usage
+• /world [term] — On-demand world & geopolitical news (aliases: /geopolitics, /global)
+• /india [term] — On-demand India & national news (alias: /national)
 • /crypto [term] — On-demand crypto & day-trading market news
 • /markets [term] — On-demand business & market news (aliases: /business, /finance)
 • /digest — Request an immediate full daily news digest
@@ -104,6 +106,14 @@ export default {
     if (cmd === "/digest") {
       replyNotice = "📰 <b>Daily Digest requested!</b>\n\nCompiling stories across all active sectors. Delivering in ~25 seconds...";
       clientPayload.force_digest = true;
+    } else if (["/world", "/geopolitics", "/global"].includes(cmd)) {
+      const filterStr = args ? ` (filtered by: <code>${escapeHtml(args)}</code>)` : "";
+      replyNotice = `🌍 <b>World & Geopolitical Intelligence requested!</b>${filterStr}\n\nScanning BBC, Al Jazeera, DW, Guardian, France 24, Euronews, Politico, UN News, and NPR. Delivering in ~25 seconds...`;
+      clientPayload.world_news = true;
+    } else if (["/india", "/national"].includes(cmd)) {
+      const filterStr = args ? ` (filtered by: <code>${escapeHtml(args)}</code>)` : "";
+      replyNotice = `🇮🇳 <b>India & National News Intelligence requested!</b>${filterStr}\n\nScanning The Hindu, Hindustan Times, Times of India, News18, NDTV, and Mint. Delivering in ~25 seconds...`;
+      clientPayload.india_news = true;
     } else if (["/markets", "/business", "/finance", "/macro"].includes(cmd)) {
       const filterStr = args ? ` (filtered by: <code>${escapeHtml(args)}</code>)` : "";
       replyNotice = `📈 <b>Business & Market Intelligence requested!</b>${filterStr}\n\nScanning CNBC, WSJ, MarketWatch, Fortune, Mint, ET, and central banks. Delivering in ~25 seconds...`;

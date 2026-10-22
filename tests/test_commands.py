@@ -31,6 +31,8 @@ def test_help_command(clean_state):
     assert "/digest" in reply
     assert "/crypto" in reply
     assert "/markets" in reply
+    assert "/world" in reply
+    assert "/india" in reply
     assert "/pause" in reply
     assert "/resume" in reply
     assert NOT_FINANCIAL_ADVICE_NOTICE in reply
@@ -169,6 +171,58 @@ def test_markets_command(clean_state):
     clean_state.pending_markets = False
     handle_command("/macro", clean_state)
     assert clean_state.pending_markets is True
+
+
+def test_world_command(clean_state):
+    """World command and aliases trigger pending_world flag with optional filter."""
+    assert clean_state.pending_world is False
+    reply = handle_command("/world", clean_state)
+    assert "Geopolitical & World Intelligence Requested" in reply
+    assert clean_state.pending_world is True
+    assert clean_state.pending_world_filter == ""
+
+    # With filter argument
+    clean_state.pending_world = False
+    reply_filtered = handle_command("/world nato summit", clean_state)
+    assert "nato summit" in reply_filtered
+    assert clean_state.pending_world is True
+    assert clean_state.pending_world_filter == "nato summit"
+
+    # Aliases
+    clean_state.pending_world = False
+    clean_state.pending_world_filter = ""
+    reply_alias = handle_command("/geopolitics middle east", clean_state)
+    assert "middle east" in reply_alias
+    assert clean_state.pending_world is True
+    assert clean_state.pending_world_filter == "middle east"
+
+    clean_state.pending_world = False
+    handle_command("/global", clean_state)
+    assert clean_state.pending_world is True
+
+
+def test_india_command(clean_state):
+    """India command and aliases trigger pending_india flag with optional filter."""
+    assert clean_state.pending_india is False
+    reply = handle_command("/india", clean_state)
+    assert "National News Intelligence Requested" in reply
+    assert clean_state.pending_india is True
+    assert clean_state.pending_india_filter == ""
+
+    # With filter argument
+    clean_state.pending_india = False
+    reply_filtered = handle_command("/india lok sabha election", clean_state)
+    assert "lok sabha election" in reply_filtered
+    assert clean_state.pending_india is True
+    assert clean_state.pending_india_filter == "lok sabha election"
+
+    # Alias
+    clean_state.pending_india = False
+    clean_state.pending_india_filter = ""
+    reply_alias = handle_command("/national supreme court", clean_state)
+    assert "supreme court" in reply_alias
+    assert clean_state.pending_india is True
+    assert clean_state.pending_india_filter == "supreme court"
 
 
 def test_pause_and_resume_command(clean_state):

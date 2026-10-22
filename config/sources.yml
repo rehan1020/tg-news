@@ -46,6 +46,46 @@ sources:
     enabled: true
     notes: Full text paywalled; RSS snippet only
 
+  - id: france24
+    name: France 24 - International
+    url: https://www.france24.com/en/rss
+    sector: world
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: euronews
+    name: Euronews - World
+    url: https://www.euronews.com/rss?format=mrss&level=theme&name=news
+    sector: world
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: politico
+    name: Politico - Global & Politics
+    url: https://rss.politico.com/politics-news.xml
+    sector: world
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: un_news
+    name: UN News - Global Affairs
+    url: https://news.un.org/feed/subscribe/en/news/all/rss.xml
+    sector: world
+    trust_tier: official
+    extract_mode: full
+    enabled: true
+
+  - id: npr_world
+    name: NPR - World News
+    url: https://feeds.npr.org/1004/rss.xml
+    sector: world
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
   # --- India National ---
   - id: thehindu
     name: The Hindu - National
@@ -92,6 +132,30 @@ sources:
   - id: economictimes
     name: Economic Times
     url: https://economictimes.indiatimes.com/rssfeedstopstories.cms
+    sector: india
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: ht_india
+    name: Hindustan Times - National
+    url: https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml
+    sector: india
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: toi_india
+    name: Times of India - National
+    url: https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms
+    sector: india
+    trust_tier: major
+    extract_mode: full
+    enabled: true
+
+  - id: news18_india
+    name: News18 - National
+    url: https://www.news18.com/commonfeeds/v1/eng/rss/india.xml
     sector: india
     trust_tier: major
     extract_mode: full
