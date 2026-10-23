@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import re
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -127,7 +128,8 @@ def format_digest_messages(
             f"<b>{headline}</b>",
         ]
         if summary:
-            block_lines.append(html.escape(summary))
+            cleaned_summary = re.sub(r"<[^>]+>", "", summary) if "<" in summary else summary
+            block_lines.append(html.escape(cleaned_summary))
 
         footer = f"<i>{source} • {rel_time}</i>"
         if cluster_size > 1:
@@ -174,7 +176,8 @@ def format_sector_digest_messages(
             f"<b>{headline}</b>",
         ]
         if summary:
-            block_lines.append(html.escape(summary))
+            cleaned_summary = re.sub(r"<[^>]+>", "", summary) if "<" in summary else summary
+            block_lines.append(html.escape(cleaned_summary))
 
         footer = f"<i>{source} • {rel_time}</i>"
         if cluster_size > 1:

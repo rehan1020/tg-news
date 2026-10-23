@@ -9,7 +9,12 @@ from src.llm.provider import SYSTEM_PROMPT, LLMProvider, validate_summary_output
 
 logger = get_logger(__name__)
 
-GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash")
+GEMINI_MODELS = (
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
+)
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
@@ -31,6 +36,11 @@ class GeminiProvider(LLMProvider):
             "Please provide a 2 to 4 bullet factual summary."
         )
 
+        headers = {
+            "x-goog-api-key": self._api_key,
+            "Content-Type": "application/json",
+        }
+
         payload = {
             "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
             "contents": [
@@ -48,8 +58,8 @@ class GeminiProvider(LLMProvider):
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 for model in GEMINI_MODELS:
-                    url = f"{GEMINI_API_URL}/{model}:generateContent?key={self._api_key}"
-                    resp = await client.post(url, json=payload)
+                    url = f"{GEMINI_API_URL}/{model}:generateContent"
+                    resp = await client.post(url, headers=headers, json=payload)
                     if resp.status_code == 200:
                         data = resp.json()
                         candidates = data.get("candidates", [])
@@ -64,15 +74,18 @@ class GeminiProvider(LLMProvider):
                     elif resp.status_code == 404:
                         logger.info(
                             "gemini model not found, trying alternate model",
-                            extra={"model": model},
+                            extra={"model": model, "body": resp.text[:150]},
                         )
                         continue
                     elif resp.status_code == 429:
-                        logger.warning("gemini quota exhausted (429)")
+                        logger.warning(
+                            "gemini quota exhausted (429)", extra={"body": resp.text[:150]}
+                        )
                         return None
                     else:
                         logger.warning(
-                            "gemini returned non-200", extra={"status": resp.status_code}
+                            "gemini returned non-200",
+                            extra={"status": resp.status_code, "body": resp.text[:150]},
                         )
                         return None
         except Exception as e:

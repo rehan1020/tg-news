@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 from src.bot.logger import get_logger
+from src.extract.extractor import clean_html_to_text
 from src.llm.gemini import GeminiProvider
 from src.llm.groq import GroqProvider
 from src.llm.provider import LLMProvider
@@ -72,7 +74,7 @@ class LLMOrchestrator:
             (summary_bullets, is_rss_only)
         """
         if not self._check_and_update_budget(state):
-            return self._format_snippet_fallback(snippet), True
+            return self._format_snippet_fallback(snippet, text), True
 
         # Try Gemini primary
         if self._primary:
@@ -91,13 +93,32 @@ class LLMOrchestrator:
             logger.info("fallback LLM failed; degrading to RSS snippet")
 
         # Degrade to snippet
-        return self._format_snippet_fallback(snippet), True
+        return self._format_snippet_fallback(snippet, text), True
 
     @staticmethod
-    def _format_snippet_fallback(snippet: str) -> str:
-        """Format an RSS snippet as clean bullet text."""
-        clean = snippet.strip()
-        if not clean:
-            return "• Headline report — full text unavailable."
-        # Truncate to reasonable snippet size
-        return f"• {clean[:250]}"
+    def _format_snippet_fallback(snippet: str, text: str = "") -> str:
+        """Format an RSS snippet or extracted text as clean bullet text."""
+        clean = clean_html_to_text(snippet).strip() if snippet else ""
+
+        # If snippet was empty or only had an image tag, try extracted article text
+        if len(clean) < 15 and text:
+            candidate = clean_html_to_text(text).strip()
+            if candidate and len(candidate) >= 15:
+                clean = candidate
+
+        if not clean or len(clean) < 10:
+            return "• Headline report — full text available at the original source."
+
+        # Truncate cleanly without cutting words or breaking mid-sentence
+        if len(clean) > 260:
+            match = re.search(r"^(.*?[\.!\?])(?:\s|$)", clean[:280])
+            if match and len(match.group(1)) >= 50:
+                clean = match.group(1).strip()
+            else:
+                last_space = clean[:250].rfind(" ")
+                if last_space > 80:
+                    clean = clean[:last_space].rstrip() + "..."
+                else:
+                    clean = clean[:247].rstrip() + "..."
+
+        return f"• {clean}"

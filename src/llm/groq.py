@@ -10,7 +10,13 @@ from src.llm.provider import SYSTEM_PROMPT, LLMProvider, validate_summary_output
 logger = get_logger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODELS = ("llama-3.3-70b-versatile", "llama-3.1-8b-instant")
+GROQ_MODELS = (
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768",
+)
 
 
 class GroqProvider(LLMProvider):
@@ -62,14 +68,19 @@ class GroqProvider(LLMProvider):
                     elif resp.status_code == 404:
                         logger.info(
                             "groq model not found, trying alternate model",
-                            extra={"model": model},
+                            extra={"model": model, "body": resp.text[:150]},
                         )
                         continue
                     elif resp.status_code == 429:
-                        logger.warning("groq quota exhausted (429)")
+                        logger.warning(
+                            "groq quota exhausted (429)", extra={"body": resp.text[:150]}
+                        )
                         return None
                     else:
-                        logger.warning("groq returned non-200", extra={"status": resp.status_code})
+                        logger.warning(
+                            "groq returned non-200",
+                            extra={"status": resp.status_code, "body": resp.text[:150]},
+                        )
                         return None
         except Exception as e:
             logger.warning("groq request exception", extra={"error": str(e)})

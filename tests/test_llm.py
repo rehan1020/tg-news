@@ -136,3 +136,45 @@ async def test_budget_exhaustion_degrades_to_snippet():
 
     assert is_fallback is True
     assert snippet in summary
+
+
+def test_snippet_fallback_strips_html_tags():
+    """HTML tags in RSS snippets (e.g. from Times of India) must be cleaned."""
+    raw_html_snippet = (
+        '<a href="https://timesofindia.indiatimes.com/article.cms">'
+        '<img align="left" border="0" hspace="10" '
+        'src="https://timesofindia.indiatimes.com/photo.cms" /></a>'
+        "Scheduled for October 27, the national convention aims to tackle representation."
+    )
+    result = LLMOrchestrator._format_snippet_fallback(raw_html_snippet)
+    assert "<a href" not in result
+    assert "<img" not in result
+    assert "Scheduled for October 27" in result
+    assert result.startswith("• ")
+
+
+def test_snippet_fallback_uses_article_text_when_rss_only_contains_image():
+    """When RSS summary contains only an <img> tag with no text, fall back to extracted text."""
+    only_img_snippet = (
+        '<a href="https://timesofindia.indiatimes.com/article.cms">'
+        '<img align="left" border="0" hspace="10" '
+        'src="https://timesofindia.indiatimes.com/photo.cms" /></a>'
+    )
+    article_text = (
+        "Senior Congress leader Shashi Tharoor criticized the decision on Thursday. "
+        "He called it a disgrace at so many levels."
+    )
+    result = LLMOrchestrator._format_snippet_fallback(only_img_snippet, text=article_text)
+    assert "<img" not in result
+    assert "Shashi Tharoor" in result
+    assert result.startswith("• ")
+
+
+def test_snippet_fallback_handles_empty_snippet_and_empty_text():
+    """When both snippet and article text are empty or only images, show clean message."""
+    only_img_snippet = '<a href="https://timesofindia.com"><img src="x.jpg"/></a>'
+    result = LLMOrchestrator._format_snippet_fallback(only_img_snippet, text="")
+    assert "<img" not in result
+    assert "<a" not in result
+    assert "full text available at the original source" in result.lower()
+    assert result.startswith("• ")

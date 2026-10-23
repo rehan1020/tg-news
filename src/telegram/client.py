@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import html
+import re
 import time
 from typing import Any
 
@@ -63,7 +64,9 @@ def format_headline_message(
     ]
 
     if bullets:
-        escaped_bullets = html.escape(bullets)
+        # Strip any stray HTML tags while preserving line breaks and structure
+        cleaned_bullets = re.sub(r"<[^>]+>", "", bullets) if "<" in bullets else bullets
+        escaped_bullets = html.escape(cleaned_bullets)
         lines.append(escaped_bullets)
 
     footer = f"<i>{escaped_source} • {rel_time}</i>"

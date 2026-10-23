@@ -12,6 +12,7 @@ import feedparser
 import httpx
 
 from src.bot.logger import get_logger
+from src.extract.extractor import clean_html_to_text
 from src.feeds.models import FeedItem
 from src.pipeline.canonical import canonicalize_url, hash_url
 from src.pipeline.simhash import compute_simhash
@@ -167,7 +168,7 @@ class FeedFetcher:
         now = time.time()
 
         for entry in parsed.entries:
-            title = entry.get("title", "").strip()
+            title = clean_html_to_text(entry.get("title", "")).strip()
             link = entry.get("link", "").strip()
             if not title or not link:
                 continue
@@ -189,7 +190,8 @@ class FeedFetcher:
                 except Exception:
                     published_at = now
 
-            summary = entry.get("summary", "") or entry.get("description", "")
+            summary_raw = entry.get("summary", "") or entry.get("description", "")
+            summary = clean_html_to_text(summary_raw).strip()
             simhash_val = compute_simhash(title)
 
             authors_list: list[str] = []

@@ -38,6 +38,20 @@ def test_format_headline_escapes_html():
     assert '<a href="https://example.com/breaking?id=1">Read original</a>' in msg
 
 
+def test_format_headline_strips_raw_html_in_bullets():
+    item = _create_sample_item()
+    raw_bullet = (
+        '• <a href="https://timesofindia.indiatimes.com/article">'
+        '<img align="left" src="pic.jpg"></a>Scheduled convention.'
+    )
+    msg = format_headline_message(item, bullets=raw_bullet)
+    assert "<img" not in msg
+    assert "&lt;img" not in msg
+    assert '<a href="https://timesofindia' not in msg
+    assert '&lt;a href="https://timesofindia' not in msg
+    assert "Scheduled convention." in msg
+
+
 def test_format_relative_time():
     now = time.time()
     assert format_relative_time(now - 30) == "just now"

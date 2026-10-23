@@ -187,3 +187,28 @@ def test_format_sector_digest_messages():
     assert "CoinDesk" in msg
     assert "(+2 sources)" in msg
     assert "Not financial, investment, or trading advice" in msg
+
+
+def test_digest_messages_strip_html_tags_in_summary():
+    """Digest formatting must strip any raw HTML tags from summary strings."""
+    items = [
+        {
+            "headline": "Election Update",
+            "url": "https://example.com/election",
+            "sector": "india",
+            "source_name": "Times of India",
+            "published_at": time.time() - 300,
+            "cluster_size": 1,
+            "summary": (
+                '<a href="https://example.com"><img src="thumb.jpg"/></a>'
+                "• Voting completed across 54 constituencies."
+            ),
+        }
+    ]
+    messages = format_digest_messages(items, slot_label="Test")
+    assert len(messages) >= 1
+    assert "<img" not in messages[0]
+    assert "&lt;img" not in messages[0]
+    assert '<a href="https://example.com/thumb' not in messages[0]
+    assert "&lt;a href" not in messages[0]
+    assert "Voting completed" in messages[0]
