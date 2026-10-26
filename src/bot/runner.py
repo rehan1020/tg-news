@@ -6,6 +6,7 @@ import asyncio
 import html
 import os
 import random
+import time
 from typing import Any
 
 from src.bot.config import BotConfig, load_config
@@ -16,6 +17,7 @@ from src.llm.orchestrator import LLMOrchestrator
 from src.pipeline.clustering import cluster_items
 from src.pipeline.dedupe import deduplicate_items
 from src.pipeline.scoring import ScoringEngine
+from src.pipeline.similarity import are_headlines_similar, compute_story_hashes
 from src.state.manager import StateManager
 from src.telegram.client import TelegramClient, format_headline_message
 from src.telegram.commands import handle_command
@@ -227,6 +229,11 @@ async def run(
             success = await telegram.send_message(message_text)
             if success:
                 sent_count += 1
+                now_ts = time.time()
+                for sh in compute_story_hashes(item.title):
+                    state.seen_story_hashes[sh] = now_ts
+                for itm in sc.cluster.items:
+                    state.seen_hashes[itm.id] = now_ts
     else:
         logger.info("bot is paused; skipping message dispatch")
 
@@ -317,6 +324,10 @@ async def run(
 
                 digest_sent = True
                 sent_urls = {itm["url"] for itm in top_digest_items}
+                now_ts = time.time()
+                for itm in top_digest_items:
+                    for sh in compute_story_hashes(itm.get("headline", "")):
+                        state.seen_story_hashes[sh] = now_ts
                 state.digest_queue = [
                     q for q in state.digest_queue if q.get("url") not in sent_urls
                 ]
@@ -527,12 +538,23 @@ def _collect_sector_items(
     filter_term: str = "",
     max_items: int = 8,
 ) -> list[dict[str, Any]]:
-    """Gather and rank items for a specific sector or sectors, optionally filtering by keyword."""
+    """Gather and rank items for sector(s), deduplicating multi-source coverage."""
     items_by_url: dict[str, dict[str, Any]] = {}
     term_lower = filter_term.lower().strip()
     sectors = {s.lower() for s in (sector if isinstance(sector, list | tuple | set) else [sector])}
 
-    # 1. From clusters
+    def _is_dup_story(headline: str, target_sector: str) -> bool:
+        return any(
+            are_headlines_similar(
+                headline,
+                existing["headline"],
+                sector1=target_sector,
+                sector2=existing.get("sector", ""),
+            )
+            for existing in items_by_url.values()
+        )
+
+    # 1. From clusters (each cluster represents a distinct event)
     for cl in clusters:
         p = cl.primary_item
         if p.sector.lower() in sectors:
@@ -542,10 +564,23 @@ def _collect_sector_items(
                 and term_lower not in (p.summary_raw or "").lower()
             ):
                 continue
+            if _is_dup_story(p.title, p.sector):
+                continue
             itm = item_to_digest_dict(p, cluster_size=cl.size, score=0.7)
             items_by_url[itm["url"]] = itm
 
-    # 2. Check raw items for any other stories
+    # 2. Check digest queue for additional stories not already covered
+    for q in digest_queue:
+        q_sec = q.get("sector", "").lower()
+        if q_sec in sectors and q.get("url") not in items_by_url:
+            headline = q.get("headline", "")
+            if term_lower and term_lower not in headline.lower():
+                continue
+            if _is_dup_story(headline, q_sec):
+                continue
+            items_by_url[q["url"]] = dict(q)
+
+    # 3. Check any unique raw items not in clusters or digest queue
     for r in raw_items:
         if r.sector.lower() in sectors and r.url not in items_by_url:
             if (
@@ -554,15 +589,10 @@ def _collect_sector_items(
                 and term_lower not in (r.summary_raw or "").lower()
             ):
                 continue
+            if _is_dup_story(r.title, r.sector):
+                continue
             itm = item_to_digest_dict(r, cluster_size=1, score=0.6)
             items_by_url[itm["url"]] = itm
-
-    # 3. Check digest queue
-    for q in digest_queue:
-        if q.get("sector", "").lower() in sectors and q.get("url") not in items_by_url:
-            if term_lower and term_lower not in q.get("headline", "").lower():
-                continue
-            items_by_url[q["url"]] = dict(q)
 
     collected = list(items_by_url.values())
     collected.sort(
@@ -576,11 +606,30 @@ def _select_balanced_digest_items(
     items: list[dict[str, Any]],
     max_items: int = 8,
 ) -> list[dict[str, Any]]:
-    """Select items balancing across sectors via round-robin, prioritized by score."""
+    """Select items balancing sectors, deduplicating multi-source coverage."""
     if not items:
         return []
+
+    def _is_similar_to_selected(
+        candidate_h: str, sec: str, current_selected: list[dict[str, Any]]
+    ) -> bool:
+        return any(
+            are_headlines_similar(
+                candidate_h,
+                sel.get("headline", ""),
+                sector1=sec,
+                sector2=sel.get("sector", ""),
+            )
+            for sel in current_selected
+        )
+
+    sorted_by_score = sorted(items, key=lambda x: x.get("score", 0.0), reverse=True)
     if len(items) <= max_items:
-        return sorted(items, key=lambda x: x.get("score", 0.0), reverse=True)
+        deduped: list[dict[str, Any]] = []
+        for itm in sorted_by_score:
+            if not _is_similar_to_selected(itm.get("headline", ""), itm.get("sector", ""), deduped):
+                deduped.append(itm)
+        return deduped
 
     # Group by sector, sorted descending by score within each sector
     by_sector: dict[str, list[dict[str, Any]]] = {}
@@ -590,7 +639,6 @@ def _select_balanced_digest_items(
 
     # Preferred sector ordering for round-robin
     preferred_order = ["world", "india", "business", "markets", "crypto"]
-    # Include any sectors not in preferred_order at the end
     ordered_sectors = [s for s in preferred_order if s in by_sector] + [
         s for s in by_sector if s not in preferred_order
     ]
@@ -601,14 +649,16 @@ def _select_balanced_digest_items(
     while len(selected) < max_items:
         added_in_round = False
         for sec in ordered_sectors:
-            idx = indices[sec]
             sec_items = by_sector[sec]
-            if idx < len(sec_items):
-                selected.append(sec_items[idx])
+            while indices[sec] < len(sec_items):
+                candidate = sec_items[indices[sec]]
                 indices[sec] += 1
-                added_in_round = True
-                if len(selected) >= max_items:
+                if not _is_similar_to_selected(candidate.get("headline", ""), sec, selected):
+                    selected.append(candidate)
+                    added_in_round = True
                     break
+            if len(selected) >= max_items:
+                break
         if not added_in_round:
             break
 

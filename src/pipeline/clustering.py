@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from src.feeds.models import FeedItem
 from src.pipeline.simhash import is_near_duplicate
+from src.pipeline.similarity import are_headlines_similar
 
 
 @dataclass
@@ -42,14 +43,30 @@ def cluster_items(
     for item in items:
         matched_cluster: StoryCluster | None = None
         for cluster in clusters:
-            # Check near-duplicate title with primary or any member
-            if (
-                item.simhash
-                and cluster.primary_item.simhash
-                and is_near_duplicate(
-                    item.simhash, cluster.primary_item.simhash, max_distance=max_simhash_distance
-                )
-            ):
+            # Check headline similarity with primary or any member
+            is_match = False
+            for member in cluster.items:
+                if are_headlines_similar(
+                    item.title,
+                    member.title,
+                    sector1=item.sector,
+                    sector2=member.sector,
+                ):
+                    is_match = True
+                    break
+                if (
+                    item.simhash
+                    and member.simhash
+                    and is_near_duplicate(
+                        item.simhash,
+                        member.simhash,
+                        max_distance=max_simhash_distance,
+                    )
+                ):
+                    is_match = True
+                    break
+
+            if is_match:
                 matched_cluster = cluster
                 break
 

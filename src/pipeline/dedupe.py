@@ -7,6 +7,7 @@ import time
 from src.bot.logger import get_logger
 from src.feeds.models import FeedItem
 from src.pipeline.simhash import is_near_duplicate
+from src.pipeline.similarity import is_story_seen
 from src.state.manager import BotState
 
 logger = get_logger(__name__)
@@ -41,9 +42,13 @@ def deduplicate_items(
             dropped_count += 1
             continue
 
-        # 3. Near-duplicate title check against persistent state
+        # 3. Check if this story was already covered in a previous run
         is_dup = False
-        if item.simhash:
+        if is_story_seen(item.title, state.seen_story_hashes):
+            is_dup = True
+
+        # 4. Near-duplicate title check against persistent state
+        if not is_dup and item.simhash:
             for seen_simhash_str in state.seen_simhashes:
                 try:
                     seen_simhash = int(seen_simhash_str)
@@ -55,14 +60,12 @@ def deduplicate_items(
                 except ValueError:
                     continue
 
-            # 4. Near-duplicate title check within current batch
-            if not is_dup:
-                for b_simhash in batch_simhashes:
-                    if is_near_duplicate(
-                        item.simhash, b_simhash, max_distance=max_simhash_distance
-                    ):
-                        is_dup = True
-                        break
+        # 5. Near-duplicate title check within current batch for same source
+        if not is_dup and item.simhash:
+            for b_simhash in batch_simhashes:
+                if is_near_duplicate(item.simhash, b_simhash, max_distance=max_simhash_distance):
+                    is_dup = True
+                    break
 
         if is_dup:
             dropped_count += 1

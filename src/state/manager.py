@@ -36,6 +36,7 @@ class BotState:
     telegram_update_offset: int = 0
     seen_hashes: dict[str, float] = field(default_factory=dict)
     seen_simhashes: dict[str, float] = field(default_factory=dict)
+    seen_story_hashes: dict[str, float] = field(default_factory=dict)
     feed_states: dict[str, dict[str, Any]] = field(default_factory=dict)
     muted_sectors: list[str] = field(default_factory=list)
     watchlist: list[str] = field(default_factory=list)
@@ -65,6 +66,7 @@ class BotState:
         initial_seen = len(self.seen_hashes)
         self.seen_hashes = {h: ts for h, ts in self.seen_hashes.items() if ts >= cutoff}
         self.seen_simhashes = {h: ts for h, ts in self.seen_simhashes.items() if ts >= cutoff}
+        self.seen_story_hashes = {h: ts for h, ts in self.seen_story_hashes.items() if ts >= cutoff}
         pruned = initial_seen - len(self.seen_hashes)
         if pruned > 0:
             logger.info("pruned expired items from seen store", extra={"pruned_count": pruned})
@@ -95,6 +97,7 @@ class BotState:
             telegram_update_offset=data.get("telegram_update_offset", 0),
             seen_hashes=data.get("seen_hashes", {}),
             seen_simhashes=data.get("seen_simhashes", {}),
+            seen_story_hashes=data.get("seen_story_hashes", {}),
             feed_states=data.get("feed_states", {}),
             muted_sectors=data.get("muted_sectors", []),
             watchlist=data.get("watchlist", []),

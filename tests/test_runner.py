@@ -78,3 +78,36 @@ class TestBalancedDigestItems:
         assert "markets" in sectors
         assert sectors.count("world") >= 2
         assert sectors.count("india") >= 1
+
+    def test_digest_deduplicates_multi_source_same_story(self):
+        items = [
+            {
+                "headline": (
+                    "Cyclone Dana: Over 5 lakh evacuated in Odisha, flights suspended in Kolkata"
+                ),
+                "sector": "india",
+                "score": 0.88,
+            },
+            {
+                "headline": (
+                    "Cyclone Dana landfall updates: Odisha evacuates 500,000 people; Kolkata shuts"
+                ),
+                "sector": "india",
+                "score": 0.85,
+            },
+            {
+                "headline": "Odisha evacuates 5 lakh people as Cyclone Dana approaches coast",
+                "sector": "india",
+                "score": 0.82,
+            },
+            {
+                "headline": "Supreme Court grants bail to Manish Sisodia in Delhi excise case",
+                "sector": "india",
+                "score": 0.75,
+            },
+        ]
+        result = _select_balanced_digest_items(items, max_items=4)
+        # Cyclone Dana was covered by 3 sources; only 1 should be selected!
+        dana_items = [it for it in result if "dana" in it["headline"].lower()]
+        assert len(dana_items) == 1
+        assert len(result) == 2  # 1 Cyclone Dana + 1 Sisodia
