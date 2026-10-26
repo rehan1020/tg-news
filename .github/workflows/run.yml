@@ -98,4 +98,4 @@ jobs:
       - name: Push state branch
         if: always()
         run: |
-          git push origin refs/heads/state:refs/heads/state || true
+          git push origin refs/heads/state:refs/heads/state --force || true
